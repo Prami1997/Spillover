@@ -30,6 +30,9 @@ self.addEventListener('fetch', e => {
       .then(res => { if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone()); return res; })
       .catch(() => cached);
     e.waitUntil(network.then(() => {}, () => {}));
-    return cached || network;
+    if (cached) return cached;
+    // Offline with nothing cached: the fetch rejected and there is no fallback, so say so
+    // properly instead of handing respondWith an undefined.
+    return (await network) || Response.error();
   })());
 });

@@ -57,9 +57,10 @@ button,select,input{font:inherit;color:inherit}
 .tnum{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:0}
 
 /* ---------- stage: the map fills it, HUD floats over the ocean ---------- */
-.stage{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
+.stage{position:relative;flex:1;min-height:0;overflow:hidden;transition:background 3s linear;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
 #map{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.land{fill:var(--land)}
+.land{fill:var(--land);transition:fill 3s linear}
+.coast,.hatch line,.link{transition:stroke 3s linear}
 .hatch{stroke:var(--stipple);stroke-width:.5;stroke-opacity:.55}
 .coast{fill:none;stroke:var(--coast);stroke-width:.7;stroke-linejoin:round}
 .link{stroke:var(--link);stroke-width:1.1;stroke-linecap:round}
@@ -1381,6 +1382,46 @@ function mixHex(a, b, t){
   return '#' + [0,1,2].map(i => Math.round(A[i] + (B[i]-A[i])*t).toString(16).padStart(2,'0')).join('');
 }
 
+// ---------- tension ramp ----------
+// The world drifts colder and tighter as the run gets away from you. Eleven tokens interpolate
+// per channel between the calm and the frantic end; dead, dna and bone are deliberately fixed,
+// because if they drifted too the contrast would collapse exactly when the screen is busiest.
+const RAMP = {
+  '--sea':       ['#181B1C', '#0C0D0D'],
+  '--sea-deep':  ['#0D0F10', '#070808'],
+  '--land':      ['#282C29', '#1A1B18'],
+  '--stipple':   ['#333733', '#212219'],
+  '--coast':     ['#6E756C', '#42453C'],
+  '--link':      ['#343833', '#24261F'],
+  '--healthy':   ['#79857F', '#5C6058'],
+  '--infected':  ['#9BA42B', '#B8C336'],
+  '--muted':     ['#8B8D84', '#6E6F68']
+};
+const RAMP_GRAIN = [0.05, 0.15], RAMP_SEA_R = [300, 210];
+
+// musicTension() drops to 0 the moment the game ends, which is right for the music - it fades
+// out. The picture must not snap back to calm on the end screen, so it holds the last value.
+let heldTension = 0, rampAt = 0, rampShown = -1;
+function visualTension(){
+  if (state && state.started && !state.over) heldTension = musicTension();
+  return heldTension;
+}
+// Re-evaluating per simulated day would mean twenty repaints a second at 20x. Wall clock instead,
+// and only when the value actually moved enough to see.
+function applyRamp(now){
+  if (now - rampAt < 400) return;
+  rampAt = now;
+  const t = visualTension();
+  if (Math.abs(t - rampShown) < 0.004) return;
+  rampShown = t;
+  const root = document.documentElement.style;
+  for (const k in RAMP) root.setProperty(k, mixHex(RAMP[k][0], RAMP[k][1], t));
+  $('#grainRect').setAttribute('opacity', (RAMP_GRAIN[0] + (RAMP_GRAIN[1] - RAMP_GRAIN[0]) * t).toFixed(3));
+  $('#seaGrad').setAttribute('r', (RAMP_SEA_R[0] + (RAMP_SEA_R[1] - RAMP_SEA_R[0]) * t).toFixed(0));
+  themeCache = null;          // canvas and node cores read the new values on the next paint
+  dirty = true;
+}
+
 // ---------- map ----------
 function buildLand(){
   if ($('#landFill').getAttribute('d')) return;            // the world never changes shape
@@ -1995,6 +2036,7 @@ function showState(s, sel, spd){
   selectedId = sel;
   renderedLog = -1; acc = 0; endShown = !!s.over; pausedBy = null;
   stopMusic();                       // a new run starts its own ambience
+  heldTension = 0; rampShown = -1;   // and its own palette
   lastLogV = s.logVersion;            // never replay a restored log as sound
   $('#launch').hidden = true;
   hideEnd();
@@ -2090,6 +2132,7 @@ function frame(now){
   updateVehicles();
   soundsFromLog();
   musicTick(now);
+  applyRamp(now);
   if (dirty){ render(); dirty = false; }
   if (now - lastSave > 5000) saveGame();
   requestAnimationFrame(frame);

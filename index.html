@@ -181,6 +181,11 @@ button,select,input{font:inherit;color:inherit}
 .chip.none{border:1px solid var(--line);color:var(--muted)} .chip.none i{background:var(--muted)}
 .rfoot{font:500 10px var(--mono);letter-spacing:.02em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--hair);margin-top:16px;padding-top:11px}
 .rfoot span{color:var(--paper)}
+.frontbox{margin-top:13px}
+.frontbox[hidden]{display:none}
+.frontbox .btn{width:100%}
+.fronthint{margin:8px 0 0;font:500 10px/1.5 var(--mono);letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
+.fronthint b{color:var(--amber);font-weight:500}
 
 /* world pane */
 #chart{display:block;width:100%;height:96px;background:#0F1111;border-radius:0;margin-bottom:14px}
@@ -248,6 +253,11 @@ button,select,input{font:inherit;color:inherit}
 .pausenote svg{width:13px;height:13px;fill:var(--amber)}
 .sheethud{display:flex;gap:12px;align-items:flex-end}
 .sheethud .dnabtn{cursor:default}
+.sheetmeters{display:flex;flex-direction:column;gap:8px;flex:none}
+.dnabtn.gen{border-color:var(--line)}
+.dnabtn.gen .lab,.dnabtn.gen .go{color:var(--muted)}
+.dnabtn.gen.full{border-color:var(--dead)}
+.dnabtn.gen.full .lab,.dnabtn.gen.full .go{color:var(--dead)}
 .sheethud .stats{flex:1;flex-direction:column;gap:8px}
 .tabsel{display:flex;gap:6px}
 .tab{flex:1;min-height:40px;background:none;border:1px solid var(--line);border-bottom:2px solid var(--tc);border-radius:0;font:600 10px var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer}
@@ -363,7 +373,14 @@ button,select,input{font:inherit;color:inherit}
     <button role="tab" data-pane="log" aria-selected="false" aria-controls="paneLog">Log</button>
   </div>
   <div class="panes">
-    <div class="pane" id="paneRegion" role="tabpanel"></div>
+    <div class="pane" id="paneRegion" role="tabpanel">
+      <div id="rinfo"></div>
+      <div class="frontbox" id="frontBox" hidden>
+        <button class="btn primary" id="frontBtn"></button>
+        <p class="fronthint" id="frontHint"></p>
+      </div>
+      <div id="rfoot"></div>
+    </div>
     <div class="pane" id="paneWorld" role="tabpanel" hidden>
       <canvas id="chart" role="img" aria-label="Infected and dead over time, log scale"></canvas>
       <div class="cols"><span>Region</span><span>Status</span><span>Infected</span><span>Dead</span></div>
@@ -420,7 +437,10 @@ button,select,input{font:inherit;color:inherit}
     </div>
     <p class="pausenote" id="pauseNote"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Time is paused while you are here.</span></p>
     <div class="sheethud">
-      <div class="dnabtn"><span class="lab">DNA</span><b id="sDna">0</b><span class="go">to spend</span></div>
+      <div class="sheetmeters">
+        <div class="dnabtn"><span class="lab">DNA</span><b id="sDna">0</b><span class="go">to spend</span></div>
+        <div class="dnabtn gen" id="genBox"><span class="lab">Genome</span><b id="sGenome">0/0</b><span class="go">traits</span></div>
+      </div>
       <div class="stats">
         <div class="stat inf"><div class="top2"><span>Infectivity</span><span class="sv" id="svInf">0</span></div><div class="track"><div class="fill" id="sbInf"></div></div></div>
         <div class="stat sev"><div class="top2"><span>Severity</span><span class="sv" id="svSev">0</span></div><div class="track"><div class="fill" id="sbSev"></div></div></div>
@@ -438,6 +458,7 @@ button,select,input{font:inherit;color:inherit}
       <span><svg viewBox="0 0 13 13"><rect x="1.5" y="1.5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--tc)"/></svg>ready</span>
       <span><svg viewBox="0 0 13 13"><rect x="1.5" y="1.5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5" style="color:var(--tc)"/></svg>need more DNA</span>
       <span>each trait owned makes its tree 1 DNA dearer</span>
+      <span>the genome only holds so many traits at once</span>
     </p>
     <div class="info" aria-live="polite">
       <div class="ihead"><h3 id="tName"></h3><span class="fx" id="tFx"></span></div>
@@ -506,9 +527,21 @@ const CONFIG = {
     dnaInfectRegion: 4,    // passive DNA for infecting a whole region
     dnaKillRegion: 2,      // passive DNA for killing a whole region
     sevPassiveK: 0.015,    // +1.5% passive DNA per severity point
-    devolveRefund: 2,      // DNA back when a symptom is devolved
+    devolveShare: 0.5,     // share of a trait's own cost that comes back when it is dropped
     costStep: 1,           // every trait you own in a tree makes the rest of that tree 1 DNA dearer
     statBarMax: 40,        // stat value that fills a HUD bar
+    // Genome: the pathogen only carries so many traits at once, so every purchase is a choice
+    // instead of a collection. It grows as the disease reaches more of the world and as more of
+    // that world dies, so the room to finish the job is earned.
+    genomeBase: 5,         // slots at the start ...
+    genomePerRegions: 2,   // ... plus one for every this many regions it has ever reached ...
+    genomeDeathSlots: 15,  // ... plus up to this many more as the world dies
+    // Second front: spending DNA to put a carrier into a region yourself
+    frontBase: 10,         // DNA for a hop to somewhere close ...
+    frontDistK: 0.08,      // ... plus this much per map unit to the nearest infected region
+    frontStep: 5,          // every front already opened makes the next one dearer
+    frontSealedK: 2.2,     // a region that has shut everything costs this much more to slip into
+    frontCarriers: 1,      // people who arrive infected
     // Humanity: detection, cure and government response
     detectSevK: 0.003,     // daily detection chance per severity point once some region is 20% infected
     detectLate: 0.01,      // daily detection chance once half the world is infected, even at zero severity
@@ -613,7 +646,7 @@ const CONFIG = {
 
 const PATHOGEN_KEYS = ['infectivity','severity','lethality','coldRes','heatRes','aridRes','drugRes','air','sea','land','hardening','shuffle'];
 const debugBonus = Object.fromEntries(PATHOGEN_KEYS.map(k => [k, 0]));
-const MODE_TEXT = { air:'by plane from', sea:'by ship from', land:'over land from' };
+const MODE_TEXT = { air:'by plane from', sea:'by ship from', land:'over land from', front:'by a carrier sent from' };
 
 // ---- trait lookup and hex adjacency
 const TRAIT_BY_ID = {}, TRAIT_ADJ = {};
@@ -667,6 +700,7 @@ function createState(startId, seed){
     totals: { H: 0, I: 0, D: 0 }, history: [], log: [], logVersion: 0,
     traits: new Set(), pathogen: null,
     dna: 0, bubbles: [], bubbleSeq: 0,
+    frontsUsed: 0, slotsSeen: 0,
     trips: [],                                // infection-carrying trips, drained by the UI for animation
     detected: false, detectDay: null, concern: CONFIG.sim.concernBase,
     cure: 0, cureDone: false, cureDay: null, cureStep: 0,
@@ -675,6 +709,7 @@ function createState(startId, seed){
   computePathogen(s);
   if (startId) startOutbreak(s, startId);     // without a start the world waits for the player to pick one
   updateTotals(s);
+  s.slotsSeen = genomeSlots(s);
   s.history.push([s.totals.I, s.totals.D]);
   return s;
 }
@@ -690,7 +725,7 @@ function startOutbreak(s, id){
 }
 
 // ---- saving
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;   // v2: the genome cap and second fronts changed what a run means
 function serializeState(s){
   return {
     v: SAVE_VERSION, seed: s.seed, day: s.day, started: s.started,
@@ -698,6 +733,7 @@ function serializeState(s){
     regions: s.regions.map(r => ({ id: r.id, H: r.H, I: r.I, D: r.D, R: r.R, ao: r.airportOpen, po: r.portOpen, bo: r.bordersOpen,
       inf: r.infectedDay, via: r.via, full: r.fullDay, gone: r.goneDay, ln: r.lastNew, ld: r.lastDeaths })),
     traits: [...s.traits], dna: s.dna, bubbles: s.bubbles, bubbleSeq: s.bubbleSeq,
+    frontsUsed: s.frontsUsed, slotsSeen: s.slotsSeen,
     history: s.history, log: s.log,
     detected: s.detected, detectDay: s.detectDay, concern: s.concern,
     cure: s.cure, cureDone: s.cureDone, cureDay: s.cureDay, cureStep: s.cureStep,
@@ -714,8 +750,8 @@ function restoreState(d){
   }
   s.rng.set(d.rng[0]); s.rngB.set(d.rng[1]); s.rngC.set(d.rng[2]);
   s.traits = new Set(d.traits.filter(id => TRAIT_BY_ID[id]));
-  for (const k of ['day','started','dna','bubbles','bubbleSeq','history','log','detected','detectDay','concern',
-                   'cure','cureDone','cureDay','cureStep','noHealthy','over']) s[k] = d[k];
+  for (const k of ['day','started','dna','bubbles','bubbleSeq','frontsUsed','slotsSeen','history','log',
+                   'detected','detectDay','concern','cure','cureDone','cureDay','cureStep','noHealthy','over']) s[k] = d[k];
   s.bubbles = s.bubbles.filter(b => s.byId[b.regionId]);
   s.logVersion = s.log.length + 1;
   computePathogen(s);
@@ -748,7 +784,20 @@ function traitCost(s, t){
   for (const id of s.traits) if (TRAIT_BY_ID[id].tree === t.tree) owned++;
   return t.cost + CONFIG.sim.costStep * owned;
 }
-function canEvolve(s, t){ return !s.over && traitState(s, t) === 'avail' && s.dna >= traitCost(s, t); }
+// The genome holds a limited number of traits and grows as the disease reaches more of the world.
+// Everything the player has evolved counts against it, so a full genome turns the next purchase
+// into a swap: drop something to make room.
+function genomeSlots(s){
+  const C = CONFIG.sim;
+  let reached = 0;
+  for (const r of s.regions) if (r.infectedDay !== null) reached++;
+  return C.genomeBase + Math.floor(reached / C.genomePerRegions) +
+         Math.floor(s.totals.D / s.worldPop * C.genomeDeathSlots);
+}
+function genomeFull(s){ return s.traits.size >= genomeSlots(s); }
+function canEvolve(s, t){
+  return !s.over && traitState(s, t) === 'avail' && s.dna >= traitCost(s, t) && !genomeFull(s);
+}
 function evolve(s, id){
   const t = TRAIT_BY_ID[id];
   if (!t || !canEvolve(s, t)) return false;
@@ -758,9 +807,10 @@ function evolve(s, id){
   addLog(s, 'Evolved ' + t.name);
   return true;
 }
+function devolveRefund(s, t){ return Math.max(1, Math.round(t.cost * CONFIG.sim.devolveShare)); }
 function canDevolve(s, t){
-  // only symptoms can be devolved, and only if every other evolved symptom stays connected to a root
-  if (s.over || t.tree !== 'symptoms' || !s.traits.has(t.id)) return false;
+  // anything can be dropped, as long as every other trait in its tree stays connected to a root
+  if (s.over || !s.traits.has(t.id)) return false;
   const rest = new Set([...s.traits].filter(id => id !== t.id && TRAIT_BY_ID[id].tree === t.tree));
   const seen = new Set([...rest].filter(id => TRAIT_BY_ID[id].root));
   const queue = [...seen];
@@ -773,7 +823,7 @@ function devolve(s, id){
   const t = TRAIT_BY_ID[id];
   if (!t || !canDevolve(s, t)) return false;
   s.traits.delete(id);
-  s.dna += CONFIG.sim.devolveRefund;
+  s.dna += devolveRefund(s, t);
   computePathogen(s);
   addLog(s, 'Devolved ' + t.name);
   return true;
@@ -791,6 +841,52 @@ function collectBubble(s, id){
   const [b] = s.bubbles.splice(i, 1);
   s.dna += b.value;
   return b;
+}
+
+// ---- second front
+// Waiting for a plane to do the work is the dull half of the game. For DNA the player can put a
+// carrier on a route themselves: pick an untouched region, pay for the distance from the nearest
+// outbreak, and pay a lot more if that region has already sealed itself off.
+function nearestSource(s, dest){
+  let src = null, best = Infinity;
+  for (const r of s.regions){
+    if (r === dest || r.I < 1) continue;
+    const d = Math.hypot(r.x - dest.x, r.y - dest.y);
+    if (d < best){ best = d; src = r; }
+  }
+  return src ? { src, dist: best } : null;
+}
+function frontCost(s, dest){
+  const C = CONFIG.sim, near = nearestSource(s, dest);
+  if (!near) return null;                    // nobody left to send anyone
+  let c = C.frontBase + C.frontStep * s.frontsUsed + near.dist * C.frontDistK;
+  if (sealedOff(s, dest)) c *= C.frontSealedK;
+  return Math.round(c);
+}
+function canSeedFront(s, dest){
+  if (s.over || !s.started || !dest || dest.I >= 1 || dest.H < 1) return false;
+  const c = frontCost(s, dest);
+  return c !== null && s.dna >= c;
+}
+function seedFront(s, id){
+  const dest = s.byId[id];
+  if (!canSeedFront(s, dest)) return false;
+  s.dna -= frontCost(s, dest);
+  s.frontsUsed++;
+  const src = nearestSource(s, dest).src;
+  const n = Math.min(CONFIG.sim.frontCarriers, dest.H);
+  dest.H -= n; dest.I += n;
+  s.trips.push({ mode: 'front', from: src.id, to: dest.id });
+  if (s.trips.length > 50) s.trips.shift();
+  if (dest.infectedDay === null){
+    dest.infectedDay = s.day; dest.via = { mode: 'front', from: src.id };
+    spawnBubble(s, dest, 'infect');
+    addLog(s, `A carrier from ${src.name} reaches ${dest.name}`);
+  } else {
+    addLog(s, `A carrier from ${src.name} returns to ${dest.name}`);
+  }
+  updateTotals(s);
+  return true;
 }
 
 // ---- spread
@@ -981,6 +1077,11 @@ function tick(s){
   }
   updateTotals(s);
   const T = s.totals;
+  const slots = genomeSlots(s);
+  if (slots > s.slotsSeen){
+    s.slotsSeen = slots;
+    addLog(s, `The genome adapts: room for ${slots} traits`);
+  }
   if (!s.noHealthy && T.H + T.R === 0){ s.noHealthy = true; addLog(s, 'No healthy people left anywhere'); }
   if (T.H + T.I + T.R === 0){ s.over = 'extinct'; addLog(s, 'Everyone is dead. Humanity is gone.'); }
   else if (T.I === 0 && s.cureDone){ s.over = 'cured'; addLog(s, 'The last infected person has been treated. Humanity survived.'); }
@@ -1106,7 +1207,7 @@ const SFX = {
     close:     { gap: 190 }, detect:   { gap: 0 },   cureStep: { gap: 0 },
     cureDone:  { gap: 0 },   wipe:     { gap: 260 }, noHealthy:{ gap: 0 },
     evolve:    { gap: 60 },  devolve:  { gap: 60 },  win:      { gap: 0 },
-    lose:      { gap: 0 },   tap:      { gap: 30 }
+    lose:      { gap: 0 },   tap:      { gap: 30 }, front:    { gap: 0 }
   }
 };
 
@@ -1193,7 +1294,10 @@ const CUE = {
                         hiss({ f: 400, f2: 80, dur: 1.2, gain: 0.12 }); },
   lose:         () => { [523, 659, 784, 1046].forEach((f, i) =>
                           tone({ f, dur: 0.5, type: 'sine', gain: 0.3, delay: i * 0.13 })); },
-  tap:          () => { tone({ f: 1000, dur: 0.035, type: 'sine', gain: 0.24 }); }
+  tap:          () => { tone({ f: 1000, dur: 0.035, type: 'sine', gain: 0.24 }); },
+  front:        () => { hiss({ f: 280, f2: 1400, dur: 0.3, gain: 0.18, q: 3 });
+                        tone({ f: 196, f2: 392, dur: 0.34, type: 'triangle', gain: 0.4 });
+                        tone({ f: 587, dur: 0.12, type: 'sine', gain: 0.2, delay: 0.22 }); }
 };
 
 function sfx(name){
@@ -1222,6 +1326,7 @@ function cueForLogText(t){
   if (/ has no survivors$/.test(t)) return 'wipe';
   if (/^No healthy people left/.test(t)) return 'noHealthy';
   if (/^Everyone in .* is infected$/.test(t)) return 'full';
+  if (/^A carrier from /.test(t)) return 'front';
   if (/ infected .* from /.test(t)) return 'infect';
   if (/^Everyone is dead/.test(t)) return 'win';
   if (/treated\. Humanity survived|died out on its own|^Nowhere left to reach/.test(t)) return 'lose';
@@ -1579,15 +1684,18 @@ function launch(mode, fromId, toId, hot){
   const a = state.byId[fromId], b = state.byId[toId];
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
   let px = -dy / d, py = dx / d;
-  if ((mode === 'air') === (py > 0)){ px = -px; py = -py; }   // planes bow upwards, ships downwards
-  const bend = d * (mode === 'air' ? 0.28 : 0.14);
+  const high = mode !== 'sea';                                // planes and carriers bow upwards, ships downwards
+  if (high === (py > 0)){ px = -px; py = -py; }
+  const bend = d * (high ? 0.28 : 0.14);
   const c = { x: (a.x + b.x) / 2 + px * bend, y: (a.y + b.y) / 2 + py * bend };
   const trail = svg('path', { d: `M${a.x} ${a.y} Q${c.x.toFixed(1)} ${c.y.toFixed(1)} ${b.x} ${b.y}`, class: 'trail' + (hot ? ' hot' : '') }, $('#trails'));
   const mover = svg('path', {
-    d: mode === 'air' ? 'M5 0 L-4 -3.6 L-2 0 L-4 3.6Z' : 'M-4 -2.2 H2.5 L5 0 L2.5 2.2 H-4Z',
+    d: mode === 'air' ? 'M5 0 L-4 -3.6 L-2 0 L-4 3.6Z'
+      : mode === 'front' ? 'M4.4 0 L0 -3.4 L-4.4 0 L0 3.4Z'
+      : 'M-4 -2.2 H2.5 L5 0 L2.5 2.2 H-4Z',
     class: 'veh' + (hot ? ' hot' : ''), transform: `translate(${a.x} ${a.y})`
   }, $('#vehicles'));
-  const dur = reduceMotion ? 500 : (mode === 'air' ? 1100 + d * 5 : 1900 + d * 8);
+  const dur = reduceMotion ? 500 : (high ? 1100 + d * 5 : 1900 + d * 8);
   vehicles.push({ a, b, c, trail, mover, hot, t0: animClock, dur });
 }
 function removeVehicle(k){
@@ -1673,9 +1781,6 @@ function regionHTML(r){
     : r.I >= 1 ? { t: Math.round(r.I / r.N * 100) + '% infected', c: 'var(--infected)' }
     : { t: r.infectedDay === null ? 'untouched' : 'clear', c: 'var(--healthy)' };
   const n = state.adj[r.id].length;
-  const first = r.infectedDay === null ? 'not yet reached'
-    : r.via ? `first infected day ${r.infectedDay}, ${MODE_TEXT[r.via.mode]} ${state.byId[r.via.from].name}`
-    : 'starting region';
   return `<div class="rhead">
       <div><h3>${esc(r.name)}</h3><div class="tags">${esc(describe(r))}</div></div>
       <div class="rshare" style="color:${share.c}">${share.t}</div>
@@ -1690,12 +1795,37 @@ function regionHTML(r){
       ${r.airport ? chipHTML(r.airportOpen ? 'Airport open' : 'Airport shut', r.airportOpen ? 'open' : 'shut') : chipHTML('No airport', 'none')}
       ${r.port ? chipHTML(r.portOpen ? 'Seaport open' : 'Seaport shut', r.portOpen ? 'open' : 'shut') : chipHTML('No seaport', 'none')}
       ${n ? chipHTML(`${n} border${n > 1 ? 's' : ''} ${r.bordersOpen ? 'open' : 'shut'}`, r.bordersOpen ? 'open' : 'shut') : chipHTML('Island', 'none')}
-    </div>
-    <div class="rfoot">Spreads at <span>${(regionBeta(state, r) * 100).toFixed(2)}%</span> a day · ${esc(first)}</div>`;
+    </div>`;
+}
+function regionFootHTML(r){
+  const first = r.infectedDay === null ? 'not yet reached'
+    : r.via ? `first infected day ${r.infectedDay}, ${MODE_TEXT[r.via.mode]} ${state.byId[r.via.from].name}`
+    : 'starting region';
+  return `<div class="rfoot">Spreads at <span>${(regionBeta(state, r) * 100).toFixed(2)}%</span> a day · ${esc(first)}</div>`;
 }
 function renderRegionPane(){
-  $('#paneRegion').innerHTML = selectedId ? regionHTML(state.byId[selectedId])
+  const r = selectedId ? state.byId[selectedId] : null;
+  $('#rinfo').innerHTML = r ? regionHTML(r)
     : `<p style="color:var(--muted);margin:0">${state.started ? 'Tap a region on the map to see it here.' : 'Pick a starting region on the map. Poor, dense, hot regions spread fast; wealthy ones fight back.'}</p>`;
+  $('#rfoot').innerHTML = r ? regionFootHTML(r) : '';
+  renderFront(r);
+}
+// The second front is a real button outside the pane's HTML: the numbers above it are rewritten
+// on every tick, and a button that is replaced mid-tap loses the tap.
+function renderFront(r){
+  const s = state, box = $('#frontBox');
+  const cost = r && s.started && !s.over && r.I < 1 && r.H >= 1 ? frontCost(s, r) : null;
+  box.hidden = cost === null;
+  if (cost === null) return;
+  const btn = $('#frontBtn'), can = s.dna >= cost;
+  btn.textContent = can ? `Send a carrier · ${cost} DNA` : `Send a carrier · need ${cost} DNA`;
+  btn.disabled = !can;
+  btn.classList.toggle('primary', can);
+  btn.setAttribute('aria-label', `Send a carrier to ${r.name} for ${cost} DNA`);
+  const near = nearestSource(s, r);
+  $('#frontHint').innerHTML = `From <b>${esc(near.src.short)}</b> · ` + (sealedOff(s, r)
+    ? `${esc(r.short)} is sealed off, so it costs far more`
+    : 'each front raises the price of the next');
 }
 function buildRegionTable(){
   const ul = $('#regions');
@@ -1766,7 +1896,7 @@ function drawChart(){
 const LOG_DOT = { shut:'var(--amber)', cure:'var(--cure)', inf:'var(--infected)', eve:'var(--paper)' };
 function logKind(text){
   if (/ closes its /.test(text)) return 'shut';
-  if (/^(Evolved|Devolved) /.test(text)) return 'eve';
+  if (/^(Evolved|Devolved|A carrier from|The genome adapts) /.test(text)) return 'eve';
   if (/[Cc]ure research|cure is ready|is identified/.test(text)) return 'cure';
   return 'inf';
 }
@@ -1888,6 +2018,9 @@ function buildTree(){
 function renderSheet(){
   const s = state, P = s.pathogen, M = CONFIG.sim.statBarMax;
   $('#sDna').textContent = Math.floor(s.dna);
+  const slots = genomeSlots(s), full = genomeFull(s);
+  $('#sGenome').textContent = `${s.traits.size}/${slots}`;
+  $('#genBox').classList.toggle('full', full);
   $('#svInf').textContent = P.infectivity; $('#sbInf').style.width = pct(P.infectivity, M);
   $('#svSev').textContent = P.severity;    $('#sbSev').style.width = pct(P.severity, M);
   $('#svLet').textContent = P.lethality;   $('#sbLet').style.width = pct(P.lethality, M);
@@ -1896,7 +2029,7 @@ function renderSheet(){
     e.g.classList.toggle('done', st === 'done');
     e.g.classList.toggle('avail', st === 'avail');
     const cost = traitCost(s, t);
-    e.g.classList.toggle('cant', st === 'avail' && s.dna < cost);
+    e.g.classList.toggle('cant', st === 'avail' && (full || s.dna < cost));
     e.g.classList.toggle('sel', id === selTrait);
     e.cost.textContent = st === 'done' ? '✓' : cost;
   }
@@ -1908,11 +2041,11 @@ function renderSheet(){
   if (s.over){ label = 'The game is over'; primary = false; }
   else if (st === 'done'){
     primary = false;
-    if (t.tree !== 'symptoms') label = 'Evolved';
-    else if (canDevolve(s, t)){ label = `Devolve for +${CONFIG.sim.devolveRefund} DNA`; enabled = true; primary = false; }
-    else label = 'Evolved. Devolve the symptoms that depend on it first.';
+    if (canDevolve(s, t)){ label = `Devolve for +${devolveRefund(s, t)} DNA`; enabled = true; }
+    else label = 'Evolved. Devolve what depends on it first.';
   }
   else if (st === 'locked'){ label = 'Locked. Evolve a neighbouring trait first.'; primary = false; }
+  else if (full){ label = `Genome full at ${slots} traits. Devolve one to make room.`; primary = false; }
   else if (s.dna >= traitCost(s, t)){ label = `Evolve for ${traitCost(s, t)} DNA`; enabled = true; }
   else label = `Need ${traitCost(s, t)} DNA, you have ${Math.floor(s.dna)}`;
   btn.textContent = label;
@@ -1969,7 +2102,7 @@ const END_TEXT = {
       const left = s.regions.filter(r => r.H + r.R > 0);
       const names = left.map(r => r.name).join(', ');
       return `${names} shut every way in before the infection ever arrived, and nothing could reach ${
-        left.length > 1 ? 'those regions' : 'it'} afterwards. Stay quiet early: every region that gets scared in time is one you never get into.`;
+        left.length > 1 ? 'those regions' : 'it'} afterwards. Stay quiet early, and spend DNA on a carrier while a way in is still cheap: every region that gets scared in time is one you never get into.`;
     },
     banner: s => `The infection ran out of reachable hosts on day ${s.day}. Press New game to try again.` }
 };
@@ -1984,7 +2117,8 @@ function showEnd(){
     <dt>Survivors</dt><dd>${fmt(s.totals.H + s.totals.I + s.totals.R)}</dd>
     <dt>Noticed on</dt><dd>${s.detected ? 'Day ' + s.detectDay : 'Never'}</dd>
     <dt>Cure</dt><dd>${s.cureDone ? 'Ready on day ' + s.cureDay : Math.floor(s.cure * 100) + '%'}</dd>
-    <dt>Traits evolved</dt><dd>${s.traits.size}</dd>`;
+    <dt>Genome</dt><dd>${s.traits.size} of ${genomeSlots(s)} traits</dd>
+    <dt>Fronts opened</dt><dd>${s.frontsUsed || 'None'}</dd>`;
   if (!$('#sheet').hidden) closeSheet();
   if (!$('#settings').hidden) closeSettings();
   $('#endcard').hidden = false;
@@ -1999,6 +2133,7 @@ function render(){
   $('#day').textContent = s.day;
   $('#dna').textContent = Math.floor(s.dna);
   $('#openSheet').classList.toggle('ready', CONFIG.traits.some(t => canEvolve(s, t)));
+  $('#openSheet').querySelector('.go').textContent = s.started && genomeFull(s) ? 'Genome full' : 'Evolve';
   $('#vInf').textContent = P.infectivity; $('#barInf').style.width = pct(P.infectivity, M);
   $('#vSev').textContent = P.severity;    $('#barSev').style.width = pct(P.severity, M);
   $('#vLet').textContent = P.lethality;   $('#barLet').style.width = pct(P.lethality, M);
@@ -2190,6 +2325,15 @@ window.addEventListener('pagehide', saveGame);
 $('#endClose').addEventListener('click', hideEnd);
 $('#closeSheet').addEventListener('click', closeSheet);
 $('#tAction').addEventListener('click', traitAction);
+$('#frontBtn').addEventListener('click', () => {
+  const r = state.byId[selectedId];
+  if (!r) return;
+  const cost = frontCost(state, r);
+  if (!seedFront(state, selectedId)) return;
+  floater(r.x, r.y - radius(r) - 6, '−' + cost);   // the sound comes from the log, like every other cue
+  saveGame();
+  dirty = true;
+});
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tree)));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;

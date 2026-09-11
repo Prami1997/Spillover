@@ -43,5 +43,21 @@ because a sped-up world reports more than an ear can follow.
 **The clock only runs while you are looking at the map.** Opening the evolve sheet or settings
 pauses the game and closing it gives you your speed back, so reading a trait never costs you days.
 
+### The genome only holds so many traits
+The pathogen carries a limited number of traits at once, so evolving is a choice rather than a
+collection: once the genome is full, buying something new means dropping something you own. Any
+trait can be dropped as long as what is left still connects to a root of its tree, and half of its
+price comes back as DNA. The genome grows as the disease reaches more of the world and as more of
+the world dies — `genomeBase`, `genomePerRegions` and `genomeDeathSlots` in `CONFIG.sim` set the
+shape of it. Hoarding every cheap symptom early now loses the run outright.
+
+### A second front
+Waiting for a plane to do the work is the dull half of the game, so you can put a carrier on a
+route yourself. Tap a region the disease has not reached and the region panel offers to send one:
+it costs DNA, the price rises with the distance from the nearest outbreak, with every front you
+have already opened, and steeply if that region has already shut its airports, ports and borders.
+The carrier flies across the map and the region is infected the same day. `frontBase`,
+`frontDistK`, `frontStep` and `frontSealedK` in `CONFIG.sim` tune it.
+
 ## Saves
 Saved in the browser storage of the phone. Clearing Chrome's site data for the page deletes the save.

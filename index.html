@@ -34,6 +34,14 @@
   --healthy:#4e9c8f; --infected:#d2456e; --dead:#b9b09c; --amber:#e3a33b;
   --t-transmission:#6fa8dc; --t-symptoms:#d2456e; --t-abilities:#a592e0; --cure:#a8dcf5;
   --sea:#101f26; --sea-deep:#0b171d; --land:#24424e; --stipple:#3d6675; --coast:#436e7e;
+  /* everything below used to be hard-coded somewhere; a reskin is now this block alone */
+  --link:#34525c; --link-shut:#8a5a2a;      /* land borders, open and closed */
+  --well:#162931;                           /* recessed surfaces: hex cells, the chart bed */
+  --scrim:#192d35e6;                        /* the banner sitting over the map */
+  --dock-shadow:#0b171d66;
+  --on-amber:#13232a99;                     /* label on a filled amber control */
+  --chip-open-line:#4e9c8f55; --chip-open-bg:#4e9c8f12;
+  --chip-shut-line:#e3a33b55; --chip-shut-bg:#e3a33b12;
   --cond:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --top:env(safe-area-inset-top); --bot:env(safe-area-inset-bottom);
@@ -49,9 +57,10 @@ button,select,input{font:inherit;color:inherit}
 .stage{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
 #map{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .land path{fill:var(--land)}
+#landDots .dot{fill:var(--stipple);fill-opacity:.85}
 .coast path{fill:none;stroke:var(--coast);stroke-width:1;stroke-opacity:.75;stroke-linejoin:round}
-.link{stroke:#34525c;stroke-width:2.5;stroke-linecap:round}
-.link.closed{stroke:#8a5a2a;stroke-dasharray:3 4}
+.link{stroke:var(--link);stroke-width:2.5;stroke-linecap:round}
+.link.closed{stroke:var(--link-shut);stroke-dasharray:3 4}
 .shut{pointer-events:none}
 .shut circle{fill:var(--ink);stroke:var(--amber);stroke-width:1.4}
 .shut line{stroke:var(--amber);stroke-width:1.4}
@@ -96,7 +105,7 @@ button,select,input{font:inherit;color:inherit}
 .dnabtn b{font:700 28px var(--cond);color:var(--amber);font-variant-numeric:tabular-nums}
 .dnabtn .go{font:600 15px var(--cond);color:var(--amber)}
 .dnabtn.ready{background:var(--amber);border-color:var(--amber)}
-.dnabtn.ready .lab{color:#13232a99} .dnabtn.ready b,.dnabtn.ready .go{color:var(--ink)}
+.dnabtn.ready .lab{color:var(--on-amber)} .dnabtn.ready b,.dnabtn.ready .go{color:var(--ink)}
 .stats{display:flex;gap:12px}
 .stat{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}
 .stat .top2{display:flex;justify-content:space-between;gap:4px;align-items:baseline}
@@ -118,11 +127,11 @@ button,select,input{font:inherit;color:inherit}
 .legend div{display:flex;align-items:center;gap:5px}
 .legend b{font:600 16px/1 var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
 .sw{display:inline-block;width:8px;height:8px;border-radius:2px;flex:none}
-.banner{margin:0;padding:8px 11px;border-left:3px solid var(--amber);background:#192d35e6;font-size:14px;border-radius:0 4px 4px 0}
+.banner{margin:0;padding:8px 11px;border-left:3px solid var(--amber);background:var(--scrim);font-size:14px;border-radius:0 4px 4px 0}
 
 /* ---------- dock: three tabs over one sheet ---------- */
 .dock{flex:none;height:42vh;min-height:264px;max-height:358px;background:var(--panel);border-top:1px solid var(--line);
-  border-radius:14px 14px 0 0;box-shadow:0 -12px 28px #0b171d66;display:flex;flex-direction:column;padding-bottom:var(--bot)}
+  border-radius:14px 14px 0 0;box-shadow:0 -12px 28px var(--dock-shadow);display:flex;flex-direction:column;padding-bottom:var(--bot)}
 .grab{display:flex;justify-content:center;align-items:center;padding:8px 0 4px;flex:none;background:none;border:0;cursor:pointer;touch-action:none;width:100%}
 .grab i{width:36px;height:4px;border-radius:2px;background:var(--line);transition:background .15s}
 .grab:hover i,.dock.tall .grab i{background:var(--muted)}
@@ -162,14 +171,14 @@ button,select,input{font:inherit;color:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .chip{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;font:600 14px var(--cond);letter-spacing:.02em}
 .chip i{width:6px;height:6px;border-radius:50%;flex:none}
-.chip.open{border:1px solid #4e9c8f55;background:#4e9c8f12} .chip.open i{background:var(--healthy)}
-.chip.shut{border:1px solid #e3a33b55;background:#e3a33b12} .chip.shut i{background:var(--amber)}
+.chip.open{border:1px solid var(--chip-open-line);background:var(--chip-open-bg)} .chip.open i{background:var(--healthy)}
+.chip.shut{border:1px solid var(--chip-shut-line);background:var(--chip-shut-bg)} .chip.shut i{background:var(--amber)}
 .chip.none{border:1px solid var(--line);color:var(--muted)} .chip.none i{background:var(--muted)}
 .rfoot{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:12px;padding-top:9px}
 .rfoot span{color:var(--paper)}
 
 /* world pane */
-#chart{display:block;width:100%;height:104px;background:#16282f;border-radius:4px;margin-bottom:10px}
+#chart{display:block;width:100%;height:104px;background:var(--well);border-radius:4px;margin-bottom:10px}
 .cols,.row{display:grid;grid-template-columns:minmax(0,1fr) 62px 58px 52px;gap:10px;align-items:center}
 .cols{font-size:12.5px;color:var(--muted);padding-bottom:4px;border-bottom:1px solid var(--line)}
 .cols span:nth-child(n+3){text-align:right}
@@ -241,7 +250,7 @@ button,select,input{font:inherit;color:inherit}
 .sheet-inner[data-tree="abilities"],.tab[data-tree="abilities"],#tree[data-tree="abilities"]{--tc:var(--t-abilities)}
 #tree{display:block;width:100%;max-width:420px;height:auto;margin:0 auto;user-select:none;-webkit-user-select:none}
 .hex{cursor:pointer;outline:none}
-.hex polygon{fill:#162931;stroke:var(--line);stroke-width:1.5}
+.hex polygon{fill:var(--well);stroke:var(--line);stroke-width:1.5}
 .hex text{fill:var(--muted);text-anchor:middle;pointer-events:none}
 .hex .hl{font:600 11px var(--cond)}
 .hex .hc{font:600 13px var(--cond)}
@@ -290,7 +299,7 @@ button,select,input{font:inherit;color:inherit}
   <svg id="map" viewBox="0 0 400 305" preserveAspectRatio="xMidYMid meet" role="group" aria-label="World map">
     <defs>
       <pattern id="landDots" width="7" height="7" patternUnits="userSpaceOnUse">
-        <circle cx="3.5" cy="3.5" r="1.25" fill="#3d6675" fill-opacity=".85"/>
+        <circle cx="3.5" cy="3.5" r="1.25" class="dot"/>
       </pattern>
       <clipPath id="landClip"></clipPath>
     </defs>
@@ -1058,6 +1067,26 @@ function fxText(fx){
   return Object.entries(fx).map(([k, v]) => `+${v} ${FX_WORDS[k]}`).join(', ');
 }
 
+// Canvas and <meta theme-color> cannot read CSS custom properties, so anything painted outside
+// the stylesheet fetches its colour here instead of hard-coding one. Swap the :root block and
+// call refreshTheme(); everything follows.
+let themeCache = null;
+function token(name){
+  if (!themeCache){
+    const cs = getComputedStyle(document.documentElement);
+    themeCache = {};
+    for (const k of ['--line', '--muted', '--dead', '--infected', '--paper', '--ink', '--cond'])
+      themeCache[k] = cs.getPropertyValue(k).trim();
+  }
+  return themeCache[name];
+}
+function refreshTheme(){
+  themeCache = null;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', token('--ink'));
+  dirty = true;
+}
+
 // ---------- sound ----------
 // Everything is synthesised with the Web Audio API: no files to ship, nothing extra for the
 // service worker to cache, and it works offline the moment the page does. Tunables live here.
@@ -1615,12 +1644,12 @@ function drawChart(){
   const pad = 8, ch = h - pad * 2;
   const X = i => n > 1 ? i / (n - 1) * w : 0;
   const Y = v => pad + ch - Math.log10(Math.max(v, 1)) / logW * ch;
-  g.font = '500 11px "Barlow Condensed","Roboto Condensed",sans-serif';
+  g.font = '500 11px ' + token('--cond');
   for (const [v, label] of [[1e3, '1k'], [1e6, '1M'], [1e9, '1B']]){
     const y = Math.round(Y(v)) + 0.5;
-    g.strokeStyle = '#2b434c'; g.lineWidth = 1;
+    g.strokeStyle = token('--line'); g.lineWidth = 1;
     g.beginPath(); g.moveTo(26, y); g.lineTo(w, y); g.stroke();
-    g.fillStyle = '#92a2a4'; g.fillText(label, 6, y + 4);
+    g.fillStyle = token('--muted'); g.fillText(label, 6, y + 4);
   }
   if (n < 2) return;
   const step = Math.max(1, Math.floor(n / w));
@@ -1630,8 +1659,8 @@ function drawChart(){
     g.lineTo(X(n - 1), Y(hist[n - 1][idx]));
     g.strokeStyle = color; g.lineWidth = 2; g.stroke();
   };
-  line(1, '#b9b09c');
-  line(0, '#d2456e');
+  line(1, token('--dead'));
+  line(0, token('--infected'));
 }
 
 // ---------- log ----------
@@ -2070,6 +2099,7 @@ window.addEventListener('resize', () => { fitMap(); dirty = true; });
 if (window.ResizeObserver) new ResizeObserver(fitMap).observe($('.stage'));
 
 buildSliders();
+refreshTheme();
 (function(){
   let fx = true, mu = true;
   try { fx = localStorage.getItem('spillover-sfx') !== '0'; mu = localStorage.getItem('spillover-music') !== '0'; } catch (e){}

@@ -4,6 +4,8 @@ Personal hobby clone of a pathogen strategy game. Single-page app, no backend.
 
 ## Files
 - `index.html` – the whole game (config, simulation and UI)
+  - the simulation (`createState` / `tick` / `evolve` / …) is in its own `<script id="sim">` block and touches no DOM
+  - the map, HUD and panels are in the second script block
 - `manifest.webmanifest`, `icon-*.png` – makes it installable
 - `sw.js` – offline support
 
@@ -16,6 +18,15 @@ Personal hobby clone of a pathogen strategy game. Single-page app, no backend.
 ## Updating
 Upload the new `index.html` over the old one and commit. The installed app picks up the
 new version on the second launch after the upload (the first launch still serves the cached copy).
+
+## Playing
+The world map fills the screen; day, DNA, the pathogen stats and cure progress float over the
+ocean. The panel underneath has three tabs — the selected region, every region plus a chart, and
+the event log — and its handle drags up for more room. Speed controls sit along the bottom, and
+the gear opens settings (new game, step a day, and the debug restart and bonus-stat sliders).
+
+**The clock only runs while you are looking at the map.** Opening the evolve sheet or settings
+pauses the game and closing it gives you your speed back, so reading a trait never costs you days.
 
 ## Saves
 Saved in the browser storage of the phone. Clearing Chrome's site data for the page deletes the save.

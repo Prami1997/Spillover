@@ -33,60 +33,23 @@
   --ink:#13232a; --panel:#192d35; --line:#2b434c; --paper:#e8e2d4; --muted:#92a2a4;
   --healthy:#4e9c8f; --infected:#d2456e; --dead:#b9b09c; --amber:#e3a33b;
   --t-transmission:#6fa8dc; --t-symptoms:#d2456e; --t-abilities:#a592e0; --cure:#a8dcf5;
+  --sea:#101f26; --sea-deep:#0b171d; --land:#24424e; --stipple:#3d6675; --coast:#436e7e;
   --cond:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --top:env(safe-area-inset-top); --bot:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box}
 html{background:var(--ink);color:var(--paper);font:16px/1.45 var(--body);-webkit-text-size-adjust:100%}
-body{margin:0 auto;max-width:560px;padding:calc(12px + env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom))}
-body.locked{overflow:hidden}
+body{margin:0;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.tnum{font-variant-numeric:tabular-nums}
 
-.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:10px}
-h1{font:700 26px/1 var(--cond);margin:0;letter-spacing:.01em}
-.clock{text-align:right;font-family:var(--cond);line-height:.95}
-.daylabel{color:var(--muted);font-size:15px;margin-right:6px}
-.daynum{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
-
-/* HUD */
-.hud{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:10px}
-.dnabtn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:76px;padding:6px 10px;background:none;border:1.5px solid var(--amber);border-radius:6px;cursor:pointer;line-height:1;text-align:left}
-.dnabtn .lab{font-size:12.5px;color:var(--muted)}
-.dnabtn b{font:700 28px var(--cond);color:var(--amber);font-variant-numeric:tabular-nums}
-.dnabtn .go{font:600 15px var(--cond);color:var(--amber)}
-.dnabtn.ready{background:var(--amber)}
-.dnabtn.ready .lab,.dnabtn.ready b,.dnabtn.ready .go{color:var(--ink)}
-.stat{font-size:12.5px;color:var(--muted)}
-.stat .top2{display:flex;justify-content:space-between;gap:4px}
-.stat .sv{font:600 15px var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
-.stat .track{height:6px;margin-top:3px;background:var(--line);border-radius:3px;overflow:hidden}
-.stat .fill{height:100%;width:0;border-radius:3px}
-.stat.inf .fill{background:var(--infected)} .stat.sev .fill{background:var(--amber)} .stat.let .fill{background:var(--dead)}
-
-/* Cure strip */
-.cure{margin:0 0 10px}
-.cure .ctop{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}
-.cure .ctop b{font:600 16px var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
-.cure .track{height:6px;margin-top:3px;background:var(--line);border-radius:3px;overflow:hidden}
-.cure .fill{height:100%;width:0;background:var(--cure);border-radius:3px}
-.cure.hidden .ctop b{color:var(--muted)}
-.cure.done .fill{background:var(--paper)}
-
-/* End of game */
-.endcard{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(19,35,42,.82)}
-.endcard[hidden]{display:none}
-.endbox{width:100%;max-width:420px;padding:20px;background:var(--panel);border-radius:8px;border-top:4px solid var(--amber)}
-.endbox.lose{border-top-color:var(--cure)}
-.endbox h2{margin:0;font-size:30px;line-height:1.05}
-.endbox p{margin:8px 0 0;color:var(--muted)}
-.endbox dl{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:14px 0 0;font-size:15px}
-.endbox dt{color:var(--muted)} .endbox dd{margin:0;font-variant-numeric:tabular-nums}
-.endbox .row2{display:flex;gap:8px;margin-top:18px}
-
-/* Map */
-.stage{position:relative;background:var(--panel);border-radius:6px;overflow:hidden}
-#map{display:block;width:100%;height:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* ---------- stage: the map fills it, HUD floats over the ocean ---------- */
+.stage{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
+#map{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.land path{fill:var(--land)}
+.coast path{fill:none;stroke:var(--coast);stroke-width:1;stroke-opacity:.75;stroke-linejoin:round}
 .link{stroke:#34525c;stroke-width:2.5;stroke-linecap:round}
 .link.closed{stroke:#8a5a2a;stroke-dasharray:3 4}
 .shut{pointer-events:none}
@@ -94,14 +57,14 @@ h1{font:700 26px/1 var(--cond);margin:0;letter-spacing:.01em}
 .shut line{stroke:var(--amber);stroke-width:1.4}
 .node{cursor:pointer;outline:none}
 .node .hit{fill:transparent}
-.node .body{fill:#1f3843}
+.node .body{fill:var(--sea-deep)}
 .node .tint.i{fill:var(--infected)} .node .tint.d{fill:var(--dead)}
 .node .ring{fill:none;stroke-width:3.5}
 .ring.h{stroke:var(--healthy)} .ring.i{stroke:var(--infected)} .ring.d{stroke:var(--dead)}
 .node .selring{fill:none;stroke:var(--amber);stroke-width:2;opacity:0}
 .node.sel .selring{opacity:1}
 .node:focus-visible .selring{opacity:1;stroke-dasharray:3 3}
-.lbl{font:500 10px var(--body);fill:var(--paper);paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.lbl{font:500 10px var(--body);fill:var(--paper);paint-order:stroke;stroke:var(--sea);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
 .node.gone .lbl{fill:var(--muted)}
 .trail{fill:none;stroke:var(--paper);stroke-opacity:.22;stroke-width:1.2;stroke-dasharray:2 3;pointer-events:none}
 .trail.hot{stroke:var(--infected);stroke-opacity:.6}
@@ -121,79 +84,155 @@ h1{font:700 26px/1 var(--cond);margin:0;letter-spacing:.01em}
 @keyframes rise{to{transform:translateY(-18px);opacity:0}}
 @media (prefers-reduced-motion: reduce){ .bubble .pop,.floater{animation:none} }
 
-/* World totals */
-.worldbar{display:flex;height:12px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:12px}
-.worldbar i,.mini i{display:block;height:100%;flex:none}
+/* ---------- HUD over the map ---------- */
+.hud{position:absolute;top:0;left:0;right:0;padding:calc(9px + var(--top)) 14px 0;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+.hud .dnabtn{pointer-events:auto}
+.hudtop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.clock{display:flex;align-items:baseline;gap:7px}
+.daylabel{font:500 15px var(--cond);color:var(--muted);letter-spacing:.06em}
+.daynum{font:700 34px/.9 var(--cond);font-variant-numeric:tabular-nums}
+.dnabtn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:76px;padding:6px 12px;background:none;border:1.5px solid var(--amber);border-radius:6px;cursor:pointer;line-height:1;text-align:left}
+.dnabtn .lab{font-size:12.5px;color:var(--muted)}
+.dnabtn b{font:700 28px var(--cond);color:var(--amber);font-variant-numeric:tabular-nums}
+.dnabtn .go{font:600 15px var(--cond);color:var(--amber)}
+.dnabtn.ready{background:var(--amber);border-color:var(--amber)}
+.dnabtn.ready .lab{color:#13232a99} .dnabtn.ready b,.dnabtn.ready .go{color:var(--ink)}
+.stats{display:flex;gap:12px}
+.stat{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}
+.stat .top2{display:flex;justify-content:space-between;gap:4px;align-items:baseline}
+.stat .sv{font:600 15px var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
+.stat .track{height:6px;margin-top:3px;background:var(--line);border-radius:3px;overflow:hidden}
+.stat .fill{height:100%;width:0;border-radius:3px}
+.stat.inf .fill{background:var(--infected)} .stat.sev .fill{background:var(--amber)} .stat.let .fill{background:var(--dead)}
+.cure .ctop{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:13px;color:var(--cure)}
+.cure .rate{font-size:12.5px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+.cure .ctop b{font:600 16px var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
+.cure .track{height:6px;margin-top:3px;background:var(--line);border-radius:3px;overflow:hidden}
+.cure .fill{height:100%;width:0;background:var(--cure);border-radius:3px}
+.cure.done .fill{background:var(--paper)}
+.worldstrip{position:absolute;left:14px;right:14px;bottom:8px;pointer-events:none}
+.worldbar{display:flex;height:9px;border-radius:3px;overflow:hidden;background:var(--line)}
+.worldbar i{display:block;height:100%;flex:none}
 .h{background:var(--healthy)} .i{background:var(--infected)} .d{background:var(--dead)}
-.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;font-size:13px;color:var(--muted)}
-.legend b{display:block;font:600 20px/1.1 var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
-.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:1px}
-.banner{margin:12px 0 0;padding:10px 12px;border-left:3px solid var(--amber);background:var(--panel);font-size:15px}
+.legend{display:flex;gap:14px;margin-top:4px}
+.legend div{display:flex;align-items:center;gap:5px}
+.legend b{font:600 16px/1 var(--cond);color:var(--paper);font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:8px;height:8px;border-radius:2px;flex:none}
+.banner{margin:0;padding:8px 11px;border-left:3px solid var(--amber);background:#192d35e6;font-size:14px;border-radius:0 4px 4px 0}
 
-/* Controls */
-.controls{margin-top:14px;display:grid;gap:10px}
-.speed{display:flex;gap:6px}
-.btn{flex:1;min-height:42px;padding:0 8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font:600 17px var(--cond);cursor:pointer}
+/* ---------- dock: three tabs over one sheet ---------- */
+.dock{flex:none;height:42vh;min-height:264px;max-height:358px;background:var(--panel);border-top:1px solid var(--line);
+  border-radius:14px 14px 0 0;box-shadow:0 -12px 28px #0b171d66;display:flex;flex-direction:column;padding-bottom:var(--bot)}
+.grab{display:flex;justify-content:center;align-items:center;padding:8px 0 4px;flex:none;background:none;border:0;cursor:pointer;touch-action:none;width:100%}
+.grab i{width:36px;height:4px;border-radius:2px;background:var(--line);transition:background .15s}
+.grab:hover i,.dock.tall .grab i{background:var(--muted)}
+.dock.tall{height:64vh;max-height:none}
+.tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.tabs button{flex:1;padding:11px 0 9px;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;
+  font:600 17px var(--cond);color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--paper);border-bottom-color:var(--amber)}
+.panes{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 14px 6px}
+.pane[hidden]{display:none}
+.speed{display:flex;gap:6px;padding:0 14px 12px;flex:none}
+.btn{flex:1;min-height:44px;padding:0 8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font:600 17px var(--cond);cursor:pointer}
 .btn[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:var(--ink)}
 .btn:disabled{opacity:.4;cursor:default}
-.restart{display:flex;gap:8px;align-items:flex-end}
-.restart label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
-.restart label:first-child{flex:1;min-width:0}
-.restart select,.restart input{min-height:42px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:0 8px;color:var(--paper);width:100%}
-.restart input{width:84px;font-variant-numeric:tabular-nums}
-.restart .btn{flex:none;padding:0 16px}
-#newGame{width:100%}
-.endbox .note{font-size:13px;margin-top:12px}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:var(--ink)}
+.iconbtn{flex:none;width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:4px;cursor:pointer}
+.iconbtn svg{width:20px;height:20px;fill:none;stroke:var(--paper);stroke-width:1.8;stroke-linecap:round}
 
-/* Region card */
-.card{margin-top:14px;padding:12px 14px;background:var(--panel);border-radius:6px}
-.card h3{font:600 22px/1.1 var(--cond);margin:0}
-.card .tags{font-size:13px;color:var(--muted);margin-top:2px}
-.card .mini{height:8px;margin:10px 0 4px}
-.card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:8px 0 0;font-size:14px}
-.card dt{color:var(--muted)}
-.card dd{margin:0;font-variant-numeric:tabular-nums}
+/* region pane */
+.rhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.rhead h3{font:600 22px/1.1 var(--cond);margin:0}
+.rshare{font:600 15px var(--cond);font-variant-numeric:tabular-nums}
+.tags{font-size:13px;color:var(--muted);margin-top:2px}
+.mini{display:flex;height:8px;border-radius:2px;overflow:hidden;background:var(--line);margin:10px 0}
+.mini i{display:block;height:100%;flex:none}
+.rgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:2px}
+.rgrid .k{font-size:12px;color:var(--muted)}
+.rgrid b{display:block;font:600 19px/1.1 var(--cond);font-variant-numeric:tabular-nums}
+.rgrid .sub{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;font:600 14px var(--cond);letter-spacing:.02em}
+.chip i{width:6px;height:6px;border-radius:50%;flex:none}
+.chip.open{border:1px solid #4e9c8f55;background:#4e9c8f12} .chip.open i{background:var(--healthy)}
+.chip.shut{border:1px solid #e3a33b55;background:#e3a33b12} .chip.shut i{background:var(--amber)}
+.chip.none{border:1px solid var(--line);color:var(--muted)} .chip.none i{background:var(--muted)}
+.rfoot{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:12px;padding-top:9px}
+.rfoot span{color:var(--paper)}
 
-/* Debug */
-details.dbg{margin-top:14px;border-top:1px solid var(--line)}
-details.dbg:last-of-type{border-bottom:1px solid var(--line)}
-details.dbg summary{font:600 19px var(--cond);padding:11px 0;cursor:pointer}
-.dbgnote{font-size:13px;color:var(--muted);margin:0 0 6px}
-#chart{display:block;width:100%;height:110px;background:var(--panel);border-radius:4px;margin-bottom:10px}
-.slider{padding:6px 0 10px}
-.slider .lab{display:flex;justify-content:space-between;font-size:15px}
-.slider .val{font:600 18px var(--cond);font-variant-numeric:tabular-nums;color:var(--amber)}
-.slider input{width:100%;accent-color:var(--amber);margin:4px 0 0}
-#resetStats{width:100%;margin:4px 0 14px}
+/* world pane */
+#chart{display:block;width:100%;height:104px;background:#16282f;border-radius:4px;margin-bottom:10px}
 .cols,.row{display:grid;grid-template-columns:minmax(0,1fr) 62px 58px 52px;gap:10px;align-items:center}
 .cols{font-size:12.5px;color:var(--muted);padding-bottom:4px;border-bottom:1px solid var(--line)}
 .cols span:nth-child(n+3){text-align:right}
-#regions{list-style:none;margin:0 0 12px;padding:0}
+#regions{list-style:none;margin:0;padding:0}
 .row{width:100%;padding:9px 0;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer}
-.row .n{display:block;font-weight:500;line-height:1.25}
+.row .n{display:block;font-weight:500;line-height:1.25;font-size:14px}
 .row.sel .n{color:var(--amber)}
-.mini{display:flex;height:8px;border-radius:2px;overflow:hidden;background:var(--line)}
 .num{text-align:right;font:600 18px var(--cond);font-variant-numeric:tabular-nums}
+.num.dd{color:var(--muted)}
 
-h2{font:600 20px var(--cond);margin:20px 0 6px}
+/* log pane */
 #log{list-style:none;margin:0;padding:0;font-size:14px}
-#log li{padding:6px 0;border-bottom:1px solid var(--line)}
-#log .day{display:inline-block;min-width:62px;font:600 16px var(--cond);color:var(--muted);font-variant-numeric:tabular-nums}
+#log li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+#log .dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:6px}
+#log .day{min-width:52px;font:600 16px var(--cond);color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+#log .txt{flex:1;text-wrap:pretty}
+.logempty{color:var(--muted);font-size:14px;padding:8px 0}
 
-/* Evolve sheet */
+/* Short phones: trade HUD ornament for map. */
+@media (max-height:720px) and (orientation:portrait){
+  .hud{gap:7px;padding-top:calc(7px + var(--top))}
+  .daynum{font-size:26px}
+  .daylabel{font-size:13px}
+  .dnabtn{padding:4px 10px}
+  .dnabtn b{font-size:22px}
+  .dnabtn .go{display:none}
+  .stat .top2 span:first-child{font-size:11.5px}
+  .dock{height:38vh;min-height:228px}
+  .speed{padding-bottom:8px}
+}
+
+/* ---------- landscape / wide ---------- */
+@media (min-width:740px) and (orientation:landscape){
+  body{flex-direction:row}
+  .stage{flex:1.55}
+  .dock{flex:1;height:auto;max-height:none;max-width:430px;border-radius:0;border-top:0;border-left:1px solid var(--line);box-shadow:none;padding-top:var(--top)}
+  .grab{display:none}
+}
+
+/* ---------- overlays ---------- */
+.endcard{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(19,35,42,.82)}
+.endcard[hidden]{display:none}
+.endbox{width:100%;max-width:420px;padding:20px;background:var(--panel);border-radius:8px;border-top:4px solid var(--amber)}
+.endbox.lose{border-top-color:var(--cure)}
+.endbox h2{margin:0;font-size:30px;line-height:1.05}
+.endbox p{margin:8px 0 0;color:var(--muted)}
+.endbox dl{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:14px 0 0;font-size:15px}
+.endbox dt{color:var(--muted)} .endbox dd{margin:0;font-variant-numeric:tabular-nums}
+.endbox .row2{display:flex;gap:8px;margin-top:18px}
+.endbox .note{font-size:13px;margin-top:12px}
+.endbox .btn{flex:1}
+
+/* evolve sheet */
 .sheet{position:fixed;inset:0;z-index:20;background:var(--ink);overflow-y:auto;overscroll-behavior:contain}
-.sheet-inner{max-width:560px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
-.sheet-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.sheet-head h2{margin:0;flex:1;font-size:26px}
+.sheet-inner{max-width:560px;margin:0 auto;padding:calc(12px + var(--top)) 14px calc(24px + var(--bot));display:flex;flex-direction:column;gap:12px}
+.sheet-head{display:flex;align-items:center;gap:12px}
+.sheet-head h2{margin:0;flex:1;font:700 26px var(--cond)}
 .sheet-head .btn{flex:none;padding:0 14px}
-.sheet .hud{margin-bottom:12px}
-.sheet .dnabtn{cursor:default}
-.tabs{display:flex;gap:6px;margin-bottom:10px}
-.tab{flex:1;min-height:42px;background:var(--panel);border:1px solid var(--line);border-bottom:3px solid var(--tc);border-radius:4px;font:600 17px var(--cond);cursor:pointer}
+.pausenote{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.pausenote svg{width:13px;height:13px;fill:var(--amber)}
+.sheethud{display:flex;gap:12px;align-items:flex-end}
+.sheethud .dnabtn{cursor:default}
+.sheethud .stats{flex:1;flex-direction:column;gap:8px}
+.tabsel{display:flex;gap:6px}
+.tab{flex:1;min-height:44px;background:var(--panel);border:1px solid var(--line);border-bottom:3px solid var(--tc);border-radius:4px;font:600 17px var(--cond);cursor:pointer}
 .tab[aria-selected="true"]{background:var(--tc);border-color:var(--tc);color:var(--ink)}
-.tab[data-tree="transmission"],#tree[data-tree="transmission"]{--tc:var(--t-transmission)}
-.tab[data-tree="symptoms"],#tree[data-tree="symptoms"]{--tc:var(--t-symptoms)}
-.tab[data-tree="abilities"],#tree[data-tree="abilities"]{--tc:var(--t-abilities)}
+.sheet-inner[data-tree="transmission"],.tab[data-tree="transmission"],#tree[data-tree="transmission"]{--tc:var(--t-transmission)}
+.sheet-inner[data-tree="symptoms"],.tab[data-tree="symptoms"],#tree[data-tree="symptoms"]{--tc:var(--t-symptoms)}
+.sheet-inner[data-tree="abilities"],.tab[data-tree="abilities"],#tree[data-tree="abilities"]{--tc:var(--t-abilities)}
 #tree{display:block;width:100%;max-width:420px;height:auto;margin:0 auto;user-select:none;-webkit-user-select:none}
 .hex{cursor:pointer;outline:none}
 .hex polygon{fill:#162931;stroke:var(--line);stroke-width:1.5}
@@ -208,105 +247,109 @@ h2{font:600 20px var(--cond);margin:20px 0 6px}
 .hex.done text{fill:var(--ink)}
 .hex.sel polygon{stroke:var(--paper);stroke-width:3;stroke-dasharray:none}
 .hex:focus-visible polygon{stroke:var(--amber);stroke-width:3}
-.info{margin-top:10px;padding:12px 14px;background:var(--panel);border-radius:6px}
+.legend2{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin:0}
+.legend2 span{display:flex;align-items:center;gap:6px}
+.legend2 svg{width:13px;height:13px}
+.info{padding:14px;background:var(--panel);border-radius:6px;display:flex;flex-direction:column;gap:7px}
+.info .ihead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .info h3{font:600 23px/1.1 var(--cond);margin:0}
-.info .desc{margin:4px 0 0;color:var(--muted);font-size:15px}
-.info .fx{margin:6px 0 0;font-size:15px}
-.info .btn{width:100%;margin-top:12px}
-.btn.primary{background:var(--amber);border-color:var(--amber);color:var(--ink)}
-.legend2{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.info .fx{font:600 15px var(--cond);color:var(--tc)}
+.info .desc{margin:0;color:var(--muted);font-size:15px}
+.info .btn{width:100%;margin-top:5px}
 
-/* Landscape phones and wider screens: map left, panels right */
-@media (min-width: 740px) and (orientation: landscape){
-  body{max-width:1200px}
-  .layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:20px;align-items:start}
-  .left{position:sticky;top:10px}
-  .top{margin-bottom:6px}
-  #map{height:calc(100vh - 130px);height:calc(100dvh - 130px);min-height:240px}
-  .right > :first-child{margin-top:0}
-  .sheet-inner{max-width:1100px;display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);
-    grid-template-areas:"tree head" "tree hud" "tree tabs" "tree info";grid-template-rows:auto auto auto 1fr;gap:0 20px;align-items:start}
-  .sheet-head{grid-area:head} .sheet .hud{grid-area:hud} .tabs{grid-area:tabs} .treewrap{grid-area:tree} .info{grid-area:info;margin-top:0}
-  .sheet .dnabtn .go{display:none}
-  #tree{max-height:calc(100vh - 70px);max-height:calc(100dvh - 70px);width:auto;max-width:100%}
-}
+/* settings */
+.settings{position:fixed;inset:0;z-index:25;background:var(--ink);overflow-y:auto;overscroll-behavior:contain}
+.settings[hidden]{display:none}
+.set-inner{max-width:560px;margin:0 auto;padding:calc(12px + var(--top)) 14px calc(24px + var(--bot))}
+.set-inner h2{font:700 26px var(--cond);margin:0 0 4px}
+.set-inner h3{font:600 19px var(--cond);margin:18px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
+.set-inner h3:first-of-type{border-top:0;padding-top:0}
+.dbgnote{font-size:13px;color:var(--muted);margin:0 0 8px}
+.restart{display:flex;gap:8px;align-items:flex-end}
+.restart label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+.restart label:first-child{flex:1;min-width:0}
+.restart select,.restart input{min-height:44px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:0 8px;color:var(--paper);width:100%}
+.restart input{width:92px;font-variant-numeric:tabular-nums}
+.restart .btn{flex:none;padding:0 16px}
+.slider{padding:6px 0 10px}
+.slider .lab{display:flex;justify-content:space-between;font-size:15px}
+.slider .val{font:600 18px var(--cond);font-variant-numeric:tabular-nums;color:var(--amber)}
+.slider input{width:100%;accent-color:var(--amber);margin:4px 0 0}
+.setrow{display:flex;gap:8px;margin-top:10px}
 </style>
 </head>
 <body>
 
-<header class="top">
-  <h1>Spillover</h1>
-  <div class="clock"><span class="daylabel">Day</span><span id="day" class="daynum">0</span></div>
-</header>
+<div class="stage">
+  <svg id="map" viewBox="0 0 400 305" preserveAspectRatio="xMidYMid meet" role="group" aria-label="World map">
+    <defs>
+      <pattern id="landDots" width="7" height="7" patternUnits="userSpaceOnUse">
+        <circle cx="3.5" cy="3.5" r="1.25" fill="#3d6675" fill-opacity=".85"/>
+      </pattern>
+      <clipPath id="landClip"></clipPath>
+    </defs>
+    <g id="world">
+      <g class="land" clip-path="url(#landClip)">
+        <g id="landFill"></g>
+        <rect width="400" height="305" fill="url(#landDots)"/>
+      </g>
+      <g class="coast" id="coast"></g>
+      <g id="links"></g><g id="trails"></g><g id="nodes"></g><g id="shuts"></g><g id="vehicles"></g><g id="bubbles"></g><g id="floaters"></g>
+    </g>
+  </svg>
 
-<div class="layout">
-  <div class="left">
-    <div class="hud">
+  <div class="hud">
+    <div class="hudtop">
+      <div class="clock"><span class="daylabel">DAY</span><span id="day" class="daynum">0</span></div>
       <button class="dnabtn" id="openSheet" aria-label="Evolve traits"><span class="lab">DNA</span><b id="dna">0</b><span class="go">Evolve</span></button>
+    </div>
+    <div class="stats">
       <div class="stat inf"><div class="top2"><span>Infectivity</span><span class="sv" id="vInf">0</span></div><div class="track"><div class="fill" id="barInf"></div></div></div>
       <div class="stat sev"><div class="top2"><span>Severity</span><span class="sv" id="vSev">0</span></div><div class="track"><div class="fill" id="barSev"></div></div></div>
       <div class="stat let"><div class="top2"><span>Lethality</span><span class="sv" id="vLet">0</span></div><div class="track"><div class="fill" id="barLet"></div></div></div>
     </div>
-    <div class="cure hidden" id="cure">
-      <div class="ctop"><span id="cureLabel">Not noticed yet</span><b id="cureVal"></b></div>
+    <div class="cure" id="cure">
+      <div class="ctop"><span id="cureLabel">Not noticed yet</span><span class="rate" id="cureRate"></span><b id="cureVal"></b></div>
       <div class="track"><div class="fill" id="cureBar"></div></div>
     </div>
-    <div class="stage">
-      <svg id="map" viewBox="0 0 400 305" role="group" aria-label="World map">
-        <g id="links"></g><g id="trails"></g><g id="nodes"></g><g id="shuts"></g><g id="vehicles"></g><g id="bubbles"></g><g id="floaters"></g>
-      </svg>
-    </div>
+    <p id="banner" class="banner" hidden></p>
   </div>
 
-  <div class="right">
-    <section aria-label="World population">
-      <div class="worldbar" id="worldbar"><i class="h"></i><i class="i"></i><i class="d"></i></div>
-      <div class="legend">
-        <div><span class="sw h"></span>Healthy<b id="tH">0</b></div>
-        <div><span class="sw i"></span>Infected<b id="tI">0</b></div>
-        <div><span class="sw d"></span>Dead<b id="tD">0</b></div>
-      </div>
-      <p id="banner" class="banner" hidden></p>
-    </section>
+  <div class="worldstrip" id="worldstrip">
+    <div class="worldbar" id="worldbar"><i class="h"></i><i class="i"></i><i class="d"></i></div>
+    <div class="legend">
+      <div title="Healthy"><span class="sw h"></span><b id="tH">0</b></div>
+      <div title="Infected"><span class="sw i"></span><b id="tI">0</b></div>
+      <div title="Dead"><span class="sw d"></span><b id="tD">0</b></div>
+    </div>
+  </div>
+</div>
 
-    <section class="controls">
-      <div class="speed" role="group" aria-label="Game speed">
-        <button class="btn" data-speed="0">Pause</button>
-        <button class="btn" data-speed="1">1×</button>
-        <button class="btn" data-speed="2">2×</button>
-        <button class="btn" data-speed="5">5×</button>
-        <button class="btn" data-speed="20">20×</button>
-        <button class="btn" id="step" title="Advance one day">Step</button>
-      </div>
-      <button class="btn" id="newGame">New game</button>
-    </section>
-
-    <section class="card" id="card"></section>
-
-    <details class="dbg" id="dbgWorld">
-      <summary>Chart and all regions</summary>
+<div class="dock">
+  <button class="grab" id="grab" aria-label="Expand or collapse the panel" aria-expanded="false"><i></i></button>
+  <div class="tabs" role="tablist" aria-label="Detail panels">
+    <button role="tab" data-pane="region" aria-selected="true" aria-controls="paneRegion">Region</button>
+    <button role="tab" data-pane="world" aria-selected="false" aria-controls="paneWorld">World</button>
+    <button role="tab" data-pane="log" aria-selected="false" aria-controls="paneLog">Log</button>
+  </div>
+  <div class="panes">
+    <div class="pane" id="paneRegion" role="tabpanel"></div>
+    <div class="pane" id="paneWorld" role="tabpanel" hidden>
       <canvas id="chart" role="img" aria-label="Infected and dead over time, log scale"></canvas>
       <div class="cols"><span>Region</span><span>Status</span><span>Infected</span><span>Dead</span></div>
       <ul id="regions"></ul>
-    </details>
-    <details class="dbg">
-      <summary>Debug restart</summary>
-      <p class="dbgnote">Same start and seed plus the same choices gives the same game.</p>
-      <div class="restart" style="margin-bottom:14px">
-        <label>Start in<select id="start"></select></label>
-        <label>Seed<input id="seed" inputmode="numeric" autocomplete="off"></label>
-        <button class="btn" id="restart">Restart</button>
-      </div>
-    </details>
-    <details class="dbg">
-      <summary>Debug bonus stats</summary>
-      <p class="dbgnote">Added on top of your evolved traits. Leave at zero for normal play.</p>
-      <div id="sliders"></div>
-      <button class="btn" id="resetStats">Reset bonus to zero</button>
-    </details>
-
-    <h2>Event log</h2>
-    <ol id="log"></ol>
+    </div>
+    <div class="pane" id="paneLog" role="tabpanel" hidden><ol id="log"></ol></div>
+  </div>
+  <div class="speed" role="group" aria-label="Game speed">
+    <button class="btn" data-speed="0">Pause</button>
+    <button class="btn" data-speed="1">1×</button>
+    <button class="btn" data-speed="2">2×</button>
+    <button class="btn" data-speed="5">5×</button>
+    <button class="btn" data-speed="20">20×</button>
+    <button class="iconbtn" id="openSettings" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+    </button>
   </div>
 </div>
 
@@ -340,27 +383,58 @@ h2{font:600 20px var(--cond);margin:20px 0 6px}
       <h2 id="sheetTitle">Evolve</h2>
       <button class="btn" id="closeSheet">Back to map</button>
     </div>
-    <div class="hud">
+    <p class="pausenote" id="pauseNote"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Time is paused while you are here.</span></p>
+    <div class="sheethud">
       <div class="dnabtn"><span class="lab">DNA</span><b id="sDna">0</b><span class="go">to spend</span></div>
-      <div class="stat inf"><div class="top2"><span>Infectivity</span><span class="sv" id="svInf">0</span></div><div class="track"><div class="fill" id="sbInf"></div></div></div>
-      <div class="stat sev"><div class="top2"><span>Severity</span><span class="sv" id="svSev">0</span></div><div class="track"><div class="fill" id="sbSev"></div></div></div>
-      <div class="stat let"><div class="top2"><span>Lethality</span><span class="sv" id="svLet">0</span></div><div class="track"><div class="fill" id="sbLet"></div></div></div>
+      <div class="stats">
+        <div class="stat inf"><div class="top2"><span>Infectivity</span><span class="sv" id="svInf">0</span></div><div class="track"><div class="fill" id="sbInf"></div></div></div>
+        <div class="stat sev"><div class="top2"><span>Severity</span><span class="sv" id="svSev">0</span></div><div class="track"><div class="fill" id="sbSev"></div></div></div>
+        <div class="stat let"><div class="top2"><span>Lethality</span><span class="sv" id="svLet">0</span></div><div class="track"><div class="fill" id="sbLet"></div></div></div>
+      </div>
     </div>
-    <div class="tabs" role="tablist">
+    <div class="tabsel" role="tablist">
       <button class="tab" role="tab" data-tree="transmission">Transmission</button>
       <button class="tab" role="tab" data-tree="symptoms">Symptoms</button>
       <button class="tab" role="tab" data-tree="abilities">Abilities</button>
     </div>
-    <div class="treewrap">
-      <svg id="tree" role="group" aria-label="Trait tree"></svg>
-      <p class="legend2"><span>Solid outline: ready to evolve</span><span>Dashed: not enough DNA</span><span>Filled: evolved</span><span>Each trait you own makes the rest of its tree 1 DNA dearer</span></p>
-    </div>
+    <svg id="tree" role="group" aria-label="Trait tree"></svg>
+    <p class="legend2">
+      <span><svg viewBox="0 0 13 13"><rect x="1" y="1" width="11" height="11" rx="2" fill="currentColor" stroke="none" style="color:var(--tc)"/></svg>evolved</span>
+      <span><svg viewBox="0 0 13 13"><rect x="1.5" y="1.5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--tc)"/></svg>ready</span>
+      <span><svg viewBox="0 0 13 13"><rect x="1.5" y="1.5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5" style="color:var(--tc)"/></svg>need more DNA</span>
+      <span>each trait owned makes its tree 1 DNA dearer</span>
+    </p>
     <div class="info" aria-live="polite">
-      <h3 id="tName"></h3>
+      <div class="ihead"><h3 id="tName"></h3><span class="fx" id="tFx"></span></div>
       <p class="desc" id="tDesc"></p>
-      <p class="fx" id="tFx"></p>
       <button class="btn primary" id="tAction"></button>
     </div>
+  </div>
+</div>
+
+<div class="settings" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="set-inner">
+    <div class="sheet-head">
+      <h2 id="setTitle">Settings</h2>
+      <button class="btn" id="closeSettings">Back to map</button>
+    </div>
+    <p class="pausenote"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Time is paused while you are here.</span></p>
+    <h3>Game</h3>
+    <div class="setrow">
+      <button class="btn" id="newGame">New game</button>
+      <button class="btn" id="step" title="Advance one day">Step one day</button>
+    </div>
+    <h3>Debug restart</h3>
+    <p class="dbgnote">Same start and seed plus the same choices gives the same game.</p>
+    <div class="restart">
+      <label>Start in<select id="start"></select></label>
+      <label>Seed<input id="seed" inputmode="numeric" autocomplete="off"></label>
+      <button class="btn" id="restart">Restart</button>
+    </div>
+    <h3>Debug bonus stats</h3>
+    <p class="dbgnote">Added on top of your evolved traits. Leave at zero for normal play.</p>
+    <div id="sliders"></div>
+    <button class="btn" id="resetStats">Reset bonus to zero</button>
   </div>
 </div>
 
@@ -904,16 +978,31 @@ const STAT_DEFS = [
 const FX_WORDS = { infectivity:'infectivity', severity:'severity', lethality:'lethality', coldRes:'cold resistance',
   heatRes:'heat resistance', aridRes:'arid resistance', drugRes:'drug resistance', air:'air travel', sea:'sea travel', land:'land borders',
   hardening:'cure difficulty', shuffle:'research disruption' };
-const HUB = ['none', 'small', 'medium', 'major'];
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MAX_VEHICLES = 14;
 const HEX = 34, SQ3 = Math.sqrt(3);
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 
+// Stylised landmasses in the same 400x305 space the regions are laid out in. Purely decorative:
+// every region node sits on land, but nothing in the simulation reads these.
+const CONTINENTS = [
+  'M22,56 L36,42 L32,30 L50,24 L72,20 L100,20 L126,28 L138,40 L130,52 L116,56 L110,74 L104,96 L96,116 L90,136 L84,158 L76,174 L70,166 L70,148 L60,128 L48,108 L34,84 L24,68 Z',
+  'M136,18 L152,8 L172,14 L176,28 L166,42 L150,48 L138,38 L132,26 Z',
+  'M104,180 L120,172 L142,168 L164,174 L180,188 L184,206 L176,222 L164,240 L156,262 L148,284 L138,298 L128,294 L124,276 L120,256 L112,234 L104,210 L100,192 Z',
+  'M174,122 L196,114 L224,114 L250,120 L268,130 L272,146 L262,160 L256,178 L262,196 L256,216 L246,238 L232,258 L216,262 L206,246 L200,224 L192,202 L184,180 L176,156 L170,138 Z',
+  'M166,74 L172,58 L186,46 L198,52 L210,40 L232,32 L258,26 L290,20 L322,20 L352,26 L378,34 L396,46 L396,62 L380,70 L364,72 L366,88 L358,106 L346,122 L334,138 L320,152 L306,162 L298,152 L302,134 L294,122 L276,116 L256,114 L244,106 L234,96 L218,90 L200,92 L182,90 L170,84 Z',
+  'M284,134 L306,134 L316,148 L318,164 L306,182 L294,168 L286,150 Z',
+  'M330,154 L348,150 L360,164 L358,180 L346,192 L334,180 L328,166 Z',
+  'M372,44 L386,48 L394,62 L390,76 L378,78 L370,64 L368,52 Z',
+  'M318,212 L340,206 L362,212 L372,222 L362,232 L340,232 L322,226 Z',
+  'M334,246 L358,238 L382,244 L396,258 L392,276 L376,290 L354,292 L338,280 L330,264 Z'
+];
+
 let state, speed = 2, acc = 0, last = performance.now(), dirty = true, renderedLog = -1;
 let selectedId = null, animClock = 0, ambientTimer = 800;
-let tab = 'transmission', selTrait = 'air1';
+let tab = 'transmission', selTrait = 'air1', pane = 'region';
+let pausedBy = null;                       // speed to give back when a full-screen view closes
 const rows = {}, nodes = {}, bubbleEls = new Map(), vehicles = [];
 let linkEls = [], endShown = false;
 let hexEls = {};
@@ -944,17 +1033,25 @@ function describe(r){
   const bits = [...r.tags];
   if (r.wealth >= 0.75) bits.push('wealthy'); else if (r.wealth <= 0.3) bits.push('poor');
   if (r.density >= 0.8) bits.push('dense');
-  if (!r.airport) bits.push('no airport');
-  if (!r.port) bits.push('landlocked');
   if (!state.adj[r.id].length) bits.push('island');
-  return bits.join(', ') || 'temperate';
+  return (bits.join(', ') || 'temperate') + ' · ' + fmt(r.N) + ' people';
 }
 function fxText(fx){
   return Object.entries(fx).map(([k, v]) => `+${v} ${FX_WORDS[k]}`).join(', ');
 }
 
 // ---------- map ----------
+function buildLand(){
+  const clip = $('#landClip'), fill = $('#landFill'), coast = $('#coast');
+  if (clip.childNodes.length) return;                 // the world never changes shape
+  for (const d of CONTINENTS){
+    svg('path', { d }, clip);
+    svg('path', { d }, fill);
+    svg('path', { d }, coast);
+  }
+}
 function buildMap(){
+  buildLand();
   const links = $('#links'), nodesG = $('#nodes'), shuts = $('#shuts');
   links.innerHTML = ''; nodesG.innerHTML = ''; shuts.innerHTML = '';
   linkEls = [];
@@ -1099,7 +1196,27 @@ function ambientTraffic(dt){
   launch(sea ? 'sea' : 'air', a.id, b.id, false);
 }
 
-// ---------- region card and table ----------
+// The world is 400x305 of user units with land between y=8 and y=306. Size the viewBox to the
+// stage's own aspect so nothing letterboxes, then push the world below the HUD - and shrink it
+// if a short screen leaves less room than the land needs. Called on every resize.
+const LAND_TOP = 8, LAND_H = 298;
+function fitMap(){
+  const stage = $('.stage').getBoundingClientRect();
+  const hudH = $('.hud').getBoundingClientRect().height;
+  const W = stage.width, H = stage.height;
+  if (!W || !H) return;
+  const scale = W / 400;                       // px per user unit when the world spans the width
+  const vbH = H / scale;
+  const topSea = (hudH + 9) / scale;           // sea kept clear for the HUD
+  const botSea = ($('.worldstrip').getBoundingClientRect().height + 14) / scale;
+  const avail = vbH - topSea - botSea;
+  const k = Math.max(0.55, Math.min(1, avail / LAND_H));   // never squash below this; the dock just covers more
+  const shift = topSea - LAND_TOP * k + Math.max(0, (avail - LAND_H * k) / 2);
+  $('#map').setAttribute('viewBox', `0 0 400 ${vbH.toFixed(1)}`);
+  $('#world').setAttribute('transform', `translate(${(400 * (1 - k) / 2).toFixed(1)} ${shift.toFixed(1)}) scale(${k.toFixed(4)})`);
+}
+
+// ---------- dock: region / world / log ----------
 function select(id){ selectedId = id; dirty = true; }
 function pickRegion(id){
   if (!state.started && !state.over){
@@ -1108,27 +1225,45 @@ function pickRegion(id){
     saveGame();
   }
   select(id);
+  setPane('region');
 }
-function cardHTML(r){
-  let first = 'Not yet';
-  if (r.infectedDay !== null){
-    first = r.via ? `Day ${r.infectedDay}, ${MODE_TEXT[r.via.mode]} ${state.byId[r.via.from].name}` : 'Day 0, starting region';
-  }
-  const borders = state.adj[r.id].map(id => state.byId[id].name).join(', ') || 'none';
-  const open = (has, isOpen) => has ? (isOpen ? 'open' : 'closed') : 'none';
-  return `<h3>${esc(r.name)}</h3>
-    <div class="tags">${esc(describe(r))}</div>
+function setPane(p){
+  pane = p;
+  for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', String(b.dataset.pane === p));
+  $('#paneRegion').hidden = p !== 'region';
+  $('#paneWorld').hidden = p !== 'world';
+  $('#paneLog').hidden = p !== 'log';
+  dirty = true;
+}
+const chipHTML = (label, kind) => `<span class="chip ${kind}"><i></i>${esc(label)}</span>`;
+function regionHTML(r){
+  const share = r.D / r.N > 0.5 ? { t: Math.round(r.D / r.N * 100) + '% dead', c: 'var(--dead)' }
+    : r.I >= 1 ? { t: Math.round(r.I / r.N * 100) + '% infected', c: 'var(--infected)' }
+    : { t: r.infectedDay === null ? 'untouched' : 'clear', c: 'var(--healthy)' };
+  const n = state.adj[r.id].length;
+  const first = r.infectedDay === null ? 'not yet reached'
+    : r.via ? `first infected day ${r.infectedDay}, ${MODE_TEXT[r.via.mode]} ${state.byId[r.via.from].name}`
+    : 'starting region';
+  return `<div class="rhead">
+      <div><h3>${esc(r.name)}</h3><div class="tags">${esc(describe(r))}</div></div>
+      <div class="rshare" style="color:${share.c}">${share.t}</div>
+    </div>
     <div class="mini"><i class="h" style="width:${pct(r.H + r.R, r.N)}"></i><i class="i" style="width:${pct(r.I, r.N)}"></i><i class="d" style="width:${pct(r.D, r.N)}"></i></div>
-    <dl>
-      <dt>Healthy</dt><dd>${fmt(r.H + r.R)} of ${fmt(r.N)}${r.R >= 1 ? `, ${fmt(r.R)} treated` : ''}</dd>
-      <dt>Infected</dt><dd>${fmt(r.I)} (+${fmt(r.lastNew)} today)</dd>
-      <dt>Dead</dt><dd>${fmt(r.D)} (+${fmt(r.lastDeaths)} today)</dd>
-      <dt>Spread rate</dt><dd>${(regionBeta(state, r) * 100).toFixed(2)}% per infected per day</dd>
-      <dt>Airport</dt><dd>${HUB[r.airport]}${r.airport ? ', ' + open(1, r.airportOpen) : ''}</dd>
-      <dt>Seaport</dt><dd>${HUB[r.port]}${r.port ? ', ' + open(1, r.portOpen) : ''}</dd>
-      <dt>Land borders</dt><dd>${esc(borders)}${state.adj[r.id].length ? (r.bordersOpen ? ' (open)' : ' (closed)') : ''}</dd>
-      <dt>First infected</dt><dd>${esc(first)}</dd>
-    </dl>`;
+    <div class="rgrid">
+      <div><span class="k">Healthy</span><b style="color:var(--healthy)">${fmt(r.H + r.R)}</b><span class="sub">${r.R >= 1 ? fmt(r.R) + ' treated' : ''}</span></div>
+      <div><span class="k">Infected</span><b style="color:var(--infected)">${fmt(r.I)}</b><span class="sub">${r.lastNew >= 1 ? '+' + fmt(r.lastNew) + ' today' : ''}</span></div>
+      <div><span class="k">Dead</span><b style="color:var(--dead)">${fmt(r.D)}</b><span class="sub">${r.lastDeaths >= 1 ? '+' + fmt(r.lastDeaths) + ' today' : ''}</span></div>
+    </div>
+    <div class="chips">
+      ${r.airport ? chipHTML(r.airportOpen ? 'Airport open' : 'Airport shut', r.airportOpen ? 'open' : 'shut') : chipHTML('No airport', 'none')}
+      ${r.port ? chipHTML(r.portOpen ? 'Seaport open' : 'Seaport shut', r.portOpen ? 'open' : 'shut') : chipHTML('No seaport', 'none')}
+      ${n ? chipHTML(`${n} border${n > 1 ? 's' : ''} ${r.bordersOpen ? 'open' : 'shut'}`, r.bordersOpen ? 'open' : 'shut') : chipHTML('Island', 'none')}
+    </div>
+    <div class="rfoot">Spreads at <span>${(regionBeta(state, r) * 100).toFixed(2)}%</span> a day · ${esc(first)}</div>`;
+}
+function renderRegionPane(){
+  $('#paneRegion').innerHTML = selectedId ? regionHTML(state.byId[selectedId])
+    : `<p style="color:var(--muted);margin:0">${state.started ? 'Tap a region on the map to see it here.' : 'Pick a starting region on the map. Poor, dense, hot regions spread fast; wealthy ones fight back.'}</p>`;
 }
 function buildRegionTable(){
   const ul = $('#regions');
@@ -1138,11 +1273,11 @@ function buildRegionTable(){
     li.innerHTML =
       `<button class="row">
         <span><span class="n">${esc(r.name)}</span></span>
-        <span class="mini"><i class="h"></i><i class="i"></i><i class="d"></i></span>
-        <span class="num"></span><span class="num"></span>
+        <span class="mini" style="margin:0"><i class="h"></i><i class="i"></i><i class="d"></i></span>
+        <span class="num"></span><span class="num dd"></span>
       </button>`;
     const btn = li.querySelector('.row');
-    btn.addEventListener('click', () => { select(r.id); $('#map').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' }); });
+    btn.addEventListener('click', () => { select(r.id); setPane('region'); });
     const nums = li.querySelectorAll('.num');
     rows[r.id] = { btn, bars: li.querySelectorAll('.mini i'), inf: nums[0], dead: nums[1] };
     ul.appendChild(li);
@@ -1195,31 +1330,68 @@ function drawChart(){
   line(0, '#d2456e');
 }
 
+// ---------- log ----------
+const LOG_DOT = { shut:'var(--amber)', cure:'var(--cure)', inf:'var(--infected)', eve:'var(--paper)' };
+function logKind(text){
+  if (/ closes its /.test(text)) return 'shut';
+  if (/^(Evolved|Devolved) /.test(text)) return 'eve';
+  if (/[Cc]ure research|cure is ready|is identified/.test(text)) return 'cure';
+  return 'inf';
+}
+// A region shuts its airports, ports and borders on three separate days, so closing up costs the
+// log three lines per region - the single largest source of noise in it. Fold all of a region's
+// closures into one row, dated by the most recent, and list what it has sealed.
+function groupLog(list){
+  const out = [], byRegion = new Map();
+  for (const e of list){
+    const m = /^(.+) closes its (airports|ports|land borders)$/.exec(e.text);
+    if (!m){ out.push({ day: e.day, text: e.text, kind: logKind(e.text) }); continue; }
+    const hit = byRegion.get(m[1]);
+    if (hit){ if (!hit.what.includes(m[2])) hit.what.push(m[2]); hit.day = e.day; continue; }
+    const row = { day: e.day, kind: 'shut', region: m[1], what: [m[2]] };
+    byRegion.set(m[1], row); out.push(row);
+  }
+  const order = ['airports', 'ports', 'land borders'];
+  for (const r of byRegion.values()) r.what.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return out.sort((a, b) => a.day - b.day);            // rows float to their latest closure
+}
+function listWords(a){
+  return a.length < 2 ? a[0] : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+}
 function renderLog(){
   if (renderedLog === state.logVersion) return;
   renderedLog = state.logVersion;
-  $('#log').innerHTML = state.log.slice(-80).reverse()
-    .map(e => `<li><span class="day">Day ${e.day}</span>${esc(e.text)}</li>`).join('');
+  const rowsOut = groupLog(state.log).slice(-80).reverse().map(e => {
+    const dot = `<span class="dot" style="background:${LOG_DOT[e.kind]}"></span><span class="day">Day ${e.day}</span>`;
+    if (!e.region) return `<li>${dot}<span class="txt">${esc(e.text)}</span></li>`;
+    const verb = e.what.length > 1 ? 'has closed' : 'closes';
+    return `<li>${dot}<span class="txt">${esc(e.region)} ${verb} its ${esc(listWords(e.what))}</span></li>`;
+  }).join('');
+  $('#log').innerHTML = rowsOut || '<li class="logempty">Nothing has happened yet.</li>';
 }
 
-// ---------- modals ----------
-// The launch screen, the end card and the evolve sheet all cover the page. Mark the page behind
-// them inert so nothing back there can be tabbed to, clicked or read out — without this you can
-// tab past the launch screen onto the map and start the outbreak underneath it. Call this after
-// any of the three change visibility, and before moving focus.
+// ---------- full-screen views ----------
+// The launch screen, the end card, the evolve sheet and settings all cover the page. Mark the map
+// and dock inert so nothing behind them can be tabbed to or clicked, and stop the clock: the game
+// only runs while the world map is the thing you are looking at.
+function overlayOpen(){ return !$('#sheet').hidden || !$('#settings').hidden; }
 function syncModal(){
-  const open = !$('#launch').hidden || !$('#endcard').hidden || !$('#sheet').hidden;
-  $('.top').inert = open;
-  $('.layout').inert = open;
-  document.body.classList.toggle('locked', open);
+  const open = overlayOpen() || !$('#launch').hidden || !$('#endcard').hidden;
+  $('.stage').inert = open;
+  $('.dock').inert = open;
+  if (overlayOpen()){
+    if (pausedBy === null){ pausedBy = speed; if (speed) setSpeed(0); }
+  } else if (pausedBy !== null){
+    const back = pausedBy;
+    pausedBy = null;
+    if (back && state && state.started && !state.over) setSpeed(back);
+  }
+  dirty = true;
 }
-
-// ---------- evolve sheet ----------
 function openSheet(){
   $('#sheet').hidden = false;
   syncModal();
   buildTree();
-  dirty = true;
   $('#closeSheet').focus();
 }
 function closeSheet(){
@@ -1227,6 +1399,18 @@ function closeSheet(){
   syncModal();
   $('#openSheet').focus();
 }
+function openSettings(){
+  $('#settings').hidden = false;
+  syncModal();
+  $('#closeSettings').focus();
+}
+function closeSettings(){
+  $('#settings').hidden = true;
+  syncModal();
+  $('#openSettings').focus();
+}
+
+// ---------- evolve sheet ----------
 function setTab(t){
   tab = t;
   const first = CONFIG.traits.find(x => x.tree === t && x.root);
@@ -1241,6 +1425,7 @@ function buildTree(){
   const el = $('#tree');
   el.innerHTML = '';
   el.dataset.tree = tab;
+  $('.sheet-inner').dataset.tree = tab;   // lets the legend and the effect line pick up the tree colour
   hexEls = {};
   let maxX = 0, maxY = 0;
   const R = HEX - 1.5;
@@ -1301,6 +1486,7 @@ function renderSheet(){
   btn.textContent = label;
   btn.disabled = !enabled;
   btn.classList.toggle('primary', primary);
+  $('#pauseNote').hidden = !!s.over || !s.started;
 }
 function traitAction(){
   const t = TRAIT_BY_ID[selTrait];
@@ -1312,25 +1498,26 @@ function traitAction(){
 // ---------- cure strip and end screen ----------
 function renderCure(){
   const s = state, box = $('#cure');
-  box.classList.toggle('hidden', !s.detected);
   box.classList.toggle('done', s.cureDone);
+  const rate = $('#cureRate');
   if (!s.started){
-    $('#cureLabel').textContent = 'Tap a region on the map to start the outbreak';
-    $('#cureVal').textContent = '';
+    $('#cureLabel').textContent = 'Tap a region to start the outbreak';
+    rate.textContent = ''; $('#cureVal').textContent = '';
     $('#cureBar').style.width = '0%';
   } else if (!s.detected){
     $('#cureLabel').textContent = 'Not noticed yet';
-    $('#cureVal').textContent = '';
+    rate.textContent = ''; $('#cureVal').textContent = '';
     $('#cureBar').style.width = '0%';
   } else if (!s.cureDone){
-    const perDay = researchPerDay(s) / cureRequirement(s) * 100;
-    $('#cureLabel').textContent = `Cure research, +${perDay.toFixed(2)}% a day`;
+    $('#cureLabel').textContent = 'Cure research';
+    rate.textContent = '+' + (researchPerDay(s) / cureRequirement(s) * 100).toFixed(2) + '%/day';
     $('#cureVal').textContent = Math.floor(s.cure * 100) + '%';
     $('#cureBar').style.width = pct(s.cure, 1);
   } else {
     const living = s.totals.H + s.totals.I + s.totals.R;
-    const treated = living > 0 ? s.totals.R / living : 0;   // nobody left alive is not "100% treated"
+    const treated = living > 0 ? s.totals.R / living : 0;
     $('#cureLabel').textContent = `Cure rollout since day ${s.cureDay}`;
+    rate.textContent = '';
     $('#cureVal').textContent = Math.floor(treated * 100) + '% treated';
     $('#cureBar').style.width = pct(treated, 1);
   }
@@ -1367,6 +1554,7 @@ function showEnd(){
     <dt>Cure</dt><dd>${s.cureDone ? 'Ready on day ' + s.cureDay : Math.floor(s.cure * 100) + '%'}</dd>
     <dt>Traits evolved</dt><dd>${s.traits.size}</dd>`;
   if (!$('#sheet').hidden) closeSheet();
+  if (!$('#settings').hidden) closeSettings();
   $('#endcard').hidden = false;
   syncModal();
   $('#playAgain').focus();
@@ -1386,14 +1574,17 @@ function render(){
   wb[0].style.width = pct(T.H + T.R, W); wb[1].style.width = pct(T.I, W); wb[2].style.width = pct(T.D, W);
   $('#tH').textContent = fmt(T.H + T.R); $('#tI').textContent = fmt(T.I); $('#tD').textContent = fmt(T.D);
 
+  renderCure();
+  fitMap();
   renderMap();
   syncBubbles();
-  $('#card').innerHTML = selectedId ? cardHTML(s.byId[selectedId])
-    : `<p>${s.started ? 'Tap a region on the map to see it here.' : 'Pick a starting region on the map. Poor, dense, hot regions spread fast; wealthy ones fight back.'}</p>`;
-  if ($('#dbgWorld').open){ renderTable(); drawChart(); }
+
+  if (pane === 'region') renderRegionPane();
+  else if (pane === 'world'){ renderTable(); drawChart(); }
+  else renderLog();
+
   if (!$('#sheet').hidden) renderSheet();
 
-  renderCure();
   const banner = $('#banner');
   if (s.over){
     banner.hidden = false;
@@ -1407,7 +1598,6 @@ function render(){
     b.disabled = (!!s.over || !s.started) && b.dataset.speed !== '0';
   });
   $('#step').disabled = !!s.over || !s.started;
-  renderLog();
 }
 
 function setSpeed(v){ speed = v; acc = 0; dirty = true; }
@@ -1415,10 +1605,11 @@ function setSpeed(v){ speed = v; acc = 0; dirty = true; }
 function showState(s, sel, spd){
   state = s;
   selectedId = sel;
-  renderedLog = -1; acc = 0; endShown = !!s.over;
+  renderedLog = -1; acc = 0; endShown = !!s.over; pausedBy = null;
   $('#launch').hidden = true;
   hideEnd();
   if (!$('#sheet').hidden) closeSheet();
+  if (!$('#settings').hidden) closeSettings();
   syncModal();
   while (vehicles.length) removeVehicle(vehicles.length - 1);
   for (const g of bubbleEls.values()) g.remove();
@@ -1426,6 +1617,8 @@ function showState(s, sel, spd){
   setSpeed(spd);
   buildMap();
   buildRegionTable();
+  setPane('region');
+  fitMap();
   lastSave = performance.now();
   dirty = true;
 }
@@ -1513,17 +1706,33 @@ function frame(now){
 $('#start').innerHTML = CONFIG.regions.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
 $('#start').value = 'china';
 document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.speed)));
-$('#step').addEventListener('click', () => { setSpeed(0); tick(state); dirty = true; });
-$('#restart').addEventListener('click', restart);
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setPane(b.dataset.pane)));
+$('#step').addEventListener('click', () => { setSpeed(0); pausedBy = 0; tick(state); dirty = true; });
+$('#restart').addEventListener('click', () => { closeSettings(); restart(); });
 $('#resetStats').addEventListener('click', () => {
   for (const k of PATHOGEN_KEYS) debugBonus[k] = 0;
   buildSliders(); computePathogen(state); dirty = true;
 });
-$('#dbgWorld').addEventListener('toggle', () => { dirty = true; });
+(function dockHandle(){
+  const dock = $('.dock'), grab = $('#grab');
+  const set = tall => { dock.classList.toggle('tall', tall); grab.setAttribute('aria-expanded', String(tall)); fitMap(); dirty = true; };
+  let y0 = null, moved = 0;
+  grab.addEventListener('pointerdown', e => { y0 = e.clientY; moved = 0; grab.setPointerCapture(e.pointerId); });
+  grab.addEventListener('pointermove', e => { if (y0 !== null) moved = y0 - e.clientY; });
+  grab.addEventListener('pointerup', () => {
+    if (y0 === null) return;
+    if (Math.abs(moved) > 30) set(moved > 0); else set(!dock.classList.contains('tall'));
+    y0 = null;
+  });
+  grab.addEventListener('pointercancel', () => { y0 = null; });
+})();
 $('#openSheet').addEventListener('click', openSheet);
+$('#openSettings').addEventListener('click', openSettings);
+$('#closeSettings').addEventListener('click', closeSettings);
 $('#playAgain').addEventListener('click', newGame);
 $('#newGame').addEventListener('click', () => {
   if (state.started && !state.over && !confirm('Start a new game? This run will be lost.')) return;
+  closeSettings();
   newGame();
 });
 $('#btnNew').addEventListener('click', newGame);
@@ -1539,9 +1748,12 @@ $('#tAction').addEventListener('click', traitAction);
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tree)));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('#endcard').hidden) hideEnd(); else if (!$('#sheet').hidden) closeSheet();
+  if (!$('#endcard').hidden) hideEnd();
+  else if (!$('#sheet').hidden) closeSheet();
+  else if (!$('#settings').hidden) closeSettings();
 });
-window.addEventListener('resize', () => { dirty = true; });
+window.addEventListener('resize', () => { fitMap(); dirty = true; });
+if (window.ResizeObserver) new ResizeObserver(fitMap).observe($('.stage'));
 
 buildSliders();
 (function boot(){

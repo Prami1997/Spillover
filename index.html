@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#13232a">
+<meta name="theme-color" content="#0D0F10">
 <title>Spillover</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -27,23 +27,26 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#13232a; --panel:#192d35; --line:#2b434c; --paper:#e8e2d4; --muted:#92a2a4;
-  --healthy:#4e9c8f; --infected:#d2456e; --dead:#b9b09c; --amber:#e3a33b;
-  --t-transmission:#6fa8dc; --t-symptoms:#d2456e; --t-abilities:#a592e0; --cure:#a8dcf5;
-  --sea:#101f26; --sea-deep:#0b171d; --land:#24424e; --stipple:#3d6675; --coast:#436e7e;
-  /* everything below used to be hard-coded somewhere; a reskin is now this block alone */
-  --link:#34525c; --link-shut:#8a5a2a;      /* land borders, open and closed */
-  --well:#162931;                           /* recessed surfaces: hex cells, the chart bed */
-  --scrim:#192d35e6;                        /* the banner sitting over the map */
-  --dock-shadow:#0b171d66;
-  --on-amber:#13232a99;                     /* label on a filled amber control */
-  --chip-open-line:#4e9c8f55; --chip-open-bg:#4e9c8f12;
-  --chip-shut-line:#e3a33b55; --chip-shut-bg:#e3a33b12;
-  --cond:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
-  --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  /* Surfaces and ink - ash, concrete, bone */
+  --ink:#0D0F10; --panel:#131515; --well:#101111; --line:#2A2D2B; --hair:#1F2220; --hair2:#1A1C1A;
+  --paper:#DBD7C9; --body-ink:#C9C5B8; --muted:#8B8D84; --dim:#6E7069; --dim2:#5E625C; --off:#4E524D;
+  --track:#1C1F1E;
+  /* Four states. They separate on lightness, saturation AND stroke weight - never hue alone. */
+  --healthy:#79857F; --infected:#9BA42B; --dead:#E6E1D3; --amber:#A4884A;
+  /* Accents */
+  --cure:#7C93A0; --t-transmission:#6F8794; --t-symptoms:#9BA42B; --t-abilities:#8C7F92;
+  /* Map - these are the t=0 end of the tension ramp and are rewritten at runtime */
+  --sea:#181B1C; --sea-deep:#0D0F10; --land:#282C29; --stipple:#333733; --coast:#6E756C;
+  --link:#343833; --link-shut:#A4884A;
+  --scrim:#131515e6; --dock-shadow:#07080866; --on-amber:#0D0F10;
+  --chip-open-line:#79857F55; --chip-open-bg:#79857F12;
+  --chip-shut-line:#A4884A55; --chip-shut-bg:#A4884A12;
+  --cond:"IBM Plex Sans Condensed",-apple-system,"Segoe UI Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans Condensed",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --top:env(safe-area-inset-top); --bot:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box}
@@ -51,7 +54,7 @@ html{background:var(--ink);color:var(--paper);font:16px/1.45 var(--body);-webkit
 body{margin:0;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.tnum{font-variant-numeric:tabular-nums}
+.tnum{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:0}
 
 /* ---------- stage: the map fills it, HUD floats over the ocean ---------- */
 .stage{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
@@ -1075,7 +1078,7 @@ function token(name){
   if (!themeCache){
     const cs = getComputedStyle(document.documentElement);
     themeCache = {};
-    for (const k of ['--line', '--muted', '--dead', '--infected', '--paper', '--ink', '--cond'])
+    for (const k of ['--line', '--hair', '--muted', '--dim2', '--dead', '--infected', '--paper', '--ink', '--cond', '--mono'])
       themeCache[k] = cs.getPropertyValue(k).trim();
   }
   return themeCache[name];
@@ -1644,12 +1647,12 @@ function drawChart(){
   const pad = 8, ch = h - pad * 2;
   const X = i => n > 1 ? i / (n - 1) * w : 0;
   const Y = v => pad + ch - Math.log10(Math.max(v, 1)) / logW * ch;
-  g.font = '500 11px ' + token('--cond');
+  g.font = '500 8px ' + token('--mono');
   for (const [v, label] of [[1e3, '1k'], [1e6, '1M'], [1e9, '1B']]){
     const y = Math.round(Y(v)) + 0.5;
-    g.strokeStyle = token('--line'); g.lineWidth = 1;
+    g.strokeStyle = token('--hair'); g.lineWidth = 1;
     g.beginPath(); g.moveTo(26, y); g.lineTo(w, y); g.stroke();
-    g.fillStyle = token('--muted'); g.fillText(label, 6, y + 4);
+    g.fillStyle = token('--dim2'); g.fillText(label, 6, y + 4);
   }
   if (n < 2) return;
   const step = Math.max(1, Math.floor(n / w));

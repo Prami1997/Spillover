@@ -140,7 +140,13 @@ button,select,input{font:inherit;color:inherit}
 .btn.primary{background:var(--amber);border-color:var(--amber);color:var(--ink)}
 .iconbtn{flex:none;width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
   background:var(--panel);border:1px solid var(--line);border-radius:4px;cursor:pointer}
-.iconbtn svg{width:20px;height:20px;fill:none;stroke:var(--paper);stroke-width:1.8;stroke-linecap:round}
+.iconbtn svg{width:20px;height:20px;fill:none;stroke:var(--paper);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .cross{display:none}
+.iconbtn.off .wave{display:none}
+.iconbtn.off .cross{display:inline}
+.iconbtn.off svg{stroke:var(--muted)}
+.speed .btn{padding:0 4px;font-size:16px}
+@media (max-width:400px){ .speed .btn{font-size:15px;padding:0 2px} .speed{gap:5px} }
 
 /* region pane */
 .rhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
@@ -347,6 +353,11 @@ button,select,input{font:inherit;color:inherit}
     <button class="btn" data-speed="2">2×</button>
     <button class="btn" data-speed="5">5×</button>
     <button class="btn" data-speed="20">20×</button>
+    <button class="iconbtn" id="sfxBtn" aria-label="Mute sound" aria-pressed="true">
+      <svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4z"/>
+        <g class="wave"><path d="M15.5 9.5a4 4 0 0 1 0 5"/><path d="M18 7.5a7.5 7.5 0 0 1 0 9"/></g>
+        <g class="cross"><path d="M16 10l5 4M21 10l-5 4"/></g></svg>
+    </button>
     <button class="iconbtn" id="openSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
     </button>
@@ -1040,6 +1051,162 @@ function fxText(fx){
   return Object.entries(fx).map(([k, v]) => `+${v} ${FX_WORDS[k]}`).join(', ');
 }
 
+// ---------- sound ----------
+// Everything is synthesised with the Web Audio API: no files to ship, nothing extra for the
+// service worker to cache, and it works offline the moment the page does. Tunables live here.
+// gap is the shortest wall-clock spacing between two of the same cue - at 20x the world throws
+// events faster than an ear can follow, so most of them are deliberately dropped.
+const SFX = {
+  master: 0.42,                      // overall level, 0..1
+  voiceCap: 5, voiceWindow: 120,     // at most this many cues started per this many ms
+  brisk: 1.5, rush: 2.4,             // gaps stretch by this much at 5x and at 10x+
+  cues: {
+    collect:   { gap: 45 },  infectBubble:{ gap: 45 },
+    outbreak:  { gap: 0 },   infect:   { gap: 150 }, full:     { gap: 220 },
+    close:     { gap: 190 }, detect:   { gap: 0 },   cureStep: { gap: 0 },
+    cureDone:  { gap: 0 },   wipe:     { gap: 260 }, noHealthy:{ gap: 0 },
+    evolve:    { gap: 60 },  devolve:  { gap: 60 },  win:      { gap: 0 },
+    lose:      { gap: 0 },   tap:      { gap: 30 }
+  }
+};
+
+let actx = null, master = null, noiseBuf = null, sfxOn = true;
+const lastCue = {};
+let recentStarts = [];
+
+function audioOK(){
+  if (actx) return actx.state !== 'closed';
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  try { actx = new AC(); } catch (e){ return false; }
+  master = actx.createGain();
+  master.gain.value = SFX.master;
+  master.connect(actx.destination);
+  const len = Math.ceil(actx.sampleRate * 1.5);
+  noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return true;
+}
+// Browsers only allow audio after a gesture, so the first tap anywhere wakes the context.
+function wakeAudio(){
+  if (!sfxOn || !audioOK()) return;
+  if (actx.state === 'suspended') actx.resume().catch(() => {});
+}
+
+function tone(o){
+  const t0 = actx.currentTime + (o.delay || 0);
+  const dur = o.dur || 0.12, osc = actx.createOscillator(), g = actx.createGain();
+  osc.type = o.type || 'sine';
+  osc.frequency.setValueAtTime(o.f, t0);
+  if (o.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.f2), t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.gain == null ? 0.5 : o.gain), t0 + (o.attack || 0.008));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g); g.connect(master);
+  osc.start(t0); osc.stop(t0 + dur + 0.03);
+}
+function hiss(o){
+  const t0 = actx.currentTime + (o.delay || 0);
+  const dur = o.dur || 0.18, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; src.loop = true;
+  f.type = o.type || 'lowpass';
+  f.frequency.setValueAtTime(o.f || 700, t0);
+  f.Q.value = o.q == null ? 1 : o.q;
+  if (o.f2) f.frequency.exponentialRampToValueAtTime(Math.max(1, o.f2), t0 + dur);
+  g.gain.setValueAtTime(Math.max(0.0002, o.gain == null ? 0.3 : o.gain), t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f); f.connect(g); g.connect(master);
+  src.start(t0); src.stop(t0 + dur + 0.03);
+}
+
+// One clinical, cold palette: soft blips for the player's own actions, low swells for the world,
+// filtered noise for anything mechanical.
+const CUE = {
+  collect:      () => { tone({ f: 660, f2: 990, dur: 0.09, type: 'triangle', gain: 0.5 });
+                        tone({ f: 1320, dur: 0.05, type: 'sine', gain: 0.18, delay: 0.05 }); },
+  infectBubble: () => { tone({ f: 440, f2: 660, dur: 0.10, type: 'triangle', gain: 0.5 });
+                        tone({ f: 880, dur: 0.05, type: 'sine', gain: 0.16, delay: 0.05 }); },
+  outbreak:     () => { tone({ f: 150, f2: 90, dur: 0.7, type: 'sine', gain: 0.6 });
+                        hiss({ f: 900, f2: 200, dur: 0.5, gain: 0.22 }); },
+  infect:       () => { tone({ f: 130, f2: 82, dur: 0.34, type: 'sine', gain: 0.45 });
+                        hiss({ f: 500, f2: 160, dur: 0.2, gain: 0.14 }); },
+  full:         () => { tone({ f: 196, dur: 0.14, type: 'triangle', gain: 0.42 });
+                        tone({ f: 147, dur: 0.24, type: 'triangle', gain: 0.42, delay: 0.12 }); },
+  close:        () => { hiss({ f: 420, dur: 0.13, gain: 0.55, q: 2 });
+                        tone({ f: 110, f2: 70, dur: 0.14, type: 'square', gain: 0.3 }); },
+  detect:       () => { tone({ f: 880, dur: 0.13, type: 'square', gain: 0.32 });
+                        tone({ f: 660, dur: 0.3, type: 'square', gain: 0.32, delay: 0.15 }); },
+  cureStep:     () => { tone({ f: 1180, dur: 0.09, type: 'sine', gain: 0.42 });
+                        tone({ f: 1570, dur: 0.11, type: 'sine', gain: 0.32, delay: 0.09 }); },
+  cureDone:     () => { [1046, 880, 698].forEach((f, i) =>
+                          tone({ f, dur: 0.42, type: 'sine', gain: 0.34, delay: i * 0.16 })); },
+  wipe:         () => { tone({ f: 84, f2: 58, dur: 0.85, type: 'sine', gain: 0.55 });
+                        hiss({ f: 260, f2: 90, dur: 0.5, gain: 0.16 }); },
+  noHealthy:    () => { tone({ f: 70, f2: 50, dur: 1.1, type: 'sine', gain: 0.5 }); },
+  evolve:       () => { tone({ f: 523, dur: 0.09, type: 'triangle', gain: 0.36 });
+                        tone({ f: 784, dur: 0.16, type: 'triangle', gain: 0.36, delay: 0.08 }); },
+  devolve:      () => { tone({ f: 784, dur: 0.09, type: 'triangle', gain: 0.3 });
+                        tone({ f: 523, dur: 0.16, type: 'triangle', gain: 0.3, delay: 0.08 }); },
+  win:          () => { [220, 175, 131].forEach((f, i) =>
+                          tone({ f, dur: 0.8, type: 'sine', gain: 0.45, delay: i * 0.22 }));
+                        hiss({ f: 400, f2: 80, dur: 1.2, gain: 0.12 }); },
+  lose:         () => { [523, 659, 784, 1046].forEach((f, i) =>
+                          tone({ f, dur: 0.5, type: 'sine', gain: 0.3, delay: i * 0.13 })); },
+  tap:          () => { tone({ f: 1000, dur: 0.035, type: 'sine', gain: 0.24 }); }
+};
+
+function sfx(name){
+  if (!sfxOn || !CUE[name] || !audioOK() || actx.state !== 'running') return;
+  const now = performance.now();
+  const cue = SFX.cues[name] || { gap: 0 };
+  // The faster the clock, the more the world shouts at once - stretch the spacing to match.
+  const gap = cue.gap * (speed >= 10 ? SFX.rush : speed >= 5 ? SFX.brisk : 1);
+  if (gap && now - (lastCue[name] || -1e9) < gap) return;
+  recentStarts = recentStarts.filter(t => now - t < SFX.voiceWindow);
+  if (recentStarts.length >= SFX.voiceCap) return;
+  lastCue[name] = now; recentStarts.push(now);
+  try { CUE[name](); } catch (e){ /* a dead context should never break the game */ }
+}
+
+// The simulation already writes every world event to the log, so that is where the cues come
+// from - no hooks inside the sim, which still has no DOM or audio access of its own.
+function cueForLogText(t){
+  if (/^Outbreak begins/.test(t)) return 'outbreak';
+  if (/^Evolved /.test(t)) return 'evolve';
+  if (/^Devolved /.test(t)) return 'devolve';
+  if (/ closes its /.test(t)) return 'close';
+  if (/is identified/.test(t)) return 'detect';
+  if (/^Cure research passes/.test(t)) return 'cureStep';
+  if (/^The cure is ready/.test(t)) return 'cureDone';
+  if (/ has no survivors$/.test(t)) return 'wipe';
+  if (/^No healthy people left/.test(t)) return 'noHealthy';
+  if (/^Everyone in .* is infected$/.test(t)) return 'full';
+  if (/ infected .* from /.test(t)) return 'infect';
+  if (/^Everyone is dead/.test(t)) return 'win';
+  if (/treated\. Humanity survived|died out on its own|^Nowhere left to reach/.test(t)) return 'lose';
+  return null;
+}
+let lastLogV = 0;
+function soundsFromLog(){
+  const n = Math.min(state.logVersion - lastLogV, state.log.length);
+  lastLogV = state.logVersion;
+  if (n <= 0) return;
+  for (const e of state.log.slice(-n)){
+    const cue = cueForLogText(e.text);
+    if (cue) sfx(cue);
+  }
+}
+function setSfx(on){
+  sfxOn = on;
+  const btn = $('#sfxBtn');
+  btn.classList.toggle('off', !on);
+  btn.setAttribute('aria-pressed', String(on));
+  btn.setAttribute('aria-label', on ? 'Mute sound' : 'Unmute sound');
+  try { localStorage.setItem('spillover-sfx', on ? '1' : '0'); } catch (e){}
+  if (on) wakeAudio(); else if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+}
+
 // ---------- map ----------
 function buildLand(){
   const clip = $('#landClip'), fill = $('#landFill'), coast = $('#coast');
@@ -1126,7 +1293,7 @@ function syncBubbles(){
       const collect = e => {
         e.preventDefault(); e.stopPropagation();
         const got = collectBubble(state, b.id);
-        if (got){ floater(p.x, p.y - 10, '+' + got.value); dirty = true; }
+        if (got){ floater(p.x, p.y - 10, '+' + got.value); sfx(b.kind === 'infect' ? 'infectBubble' : 'collect'); dirty = true; }
       };
       g.addEventListener('pointerdown', collect);
       g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') collect(e); });
@@ -1606,6 +1773,7 @@ function showState(s, sel, spd){
   state = s;
   selectedId = sel;
   renderedLog = -1; acc = 0; endShown = !!s.over; pausedBy = null;
+  lastLogV = s.logVersion;            // never replay a restored log as sound
   $('#launch').hidden = true;
   hideEnd();
   if (!$('#sheet').hidden) closeSheet();
@@ -1697,6 +1865,7 @@ function frame(now){
     state.trips.length = 0;
   }
   updateVehicles();
+  soundsFromLog();
   if (dirty){ render(); dirty = false; }
   if (now - lastSave > 5000) saveGame();
   requestAnimationFrame(frame);
@@ -1706,7 +1875,9 @@ function frame(now){
 $('#start').innerHTML = CONFIG.regions.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
 $('#start').value = 'china';
 document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.speed)));
-document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setPane(b.dataset.pane)));
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { sfx('tap'); setPane(b.dataset.pane); }));
+$('#sfxBtn').addEventListener('click', () => { const on = !sfxOn; setSfx(on); if (on) sfx('tap'); });
+document.addEventListener('pointerdown', wakeAudio, { passive: true });
 $('#step').addEventListener('click', () => { setSpeed(0); pausedBy = 0; tick(state); dirty = true; });
 $('#restart').addEventListener('click', () => { closeSettings(); restart(); });
 $('#resetStats').addEventListener('click', () => {
@@ -1740,7 +1911,10 @@ $('#btnContinue').addEventListener('click', () => {
   const s = loadSave();
   if (s) showState(s, null, 1); else newGame();
 });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveGame(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden'){ saveGame(); if (actx && actx.state === 'running') actx.suspend().catch(() => {}); }
+  else wakeAudio();
+});
 window.addEventListener('pagehide', saveGame);
 $('#endClose').addEventListener('click', hideEnd);
 $('#closeSheet').addEventListener('click', closeSheet);
@@ -1756,6 +1930,7 @@ window.addEventListener('resize', () => { fitMap(); dirty = true; });
 if (window.ResizeObserver) new ResizeObserver(fitMap).observe($('.stage'));
 
 buildSliders();
+(function(){ let on = true; try { on = localStorage.getItem('spillover-sfx') !== '0'; } catch (e){} setSfx(on); })();
 (function boot(){
   const saved = loadSave();
   showState(saved || createState(null, Math.floor(Math.random() * 99999) + 1), null, 0);

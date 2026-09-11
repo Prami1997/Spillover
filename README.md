@@ -25,6 +25,13 @@ ocean. The panel underneath has three tabs — the selected region, every region
 the event log — and its handle drags up for more room. Speed controls sit along the bottom, and
 the gear opens settings (new game, step a day, and the debug restart and bonus-stat sliders).
 
+Sound is synthesised in the browser — there are no audio files in the repo and nothing extra for
+the service worker to cache. The speaker button next to the gear mutes it, and the choice is
+remembered. Cues are driven off the event log, so anything the simulation reports can make a
+noise without the simulation knowing sound exists. `SFX` at the top of the sound section holds the
+levels and the minimum spacing between repeats; those gaps stretch automatically at 5× and above,
+because a sped-up world reports more than an ear can follow.
+
 **The clock only runs while you are looking at the map.** Opening the evolve sheet or settings
 pauses the game and closing it gives you your speed back, so reading a trait never costs you days.
 

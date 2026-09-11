@@ -29,8 +29,12 @@ ocean. The panel underneath has three tabs — the selected region, every region
 the event log — and its handle drags up for more room. Speed controls sit along the bottom, and
 the gear opens settings (new game, step a day, and the debug restart and bonus-stat sliders).
 
-Sound is synthesised in the browser — there are no audio files in the repo and nothing extra for
-the service worker to cache. The speaker button next to the gear mutes it, and the choice is
+Sound and music are both synthesised in the browser — there are no audio files in the repo and
+nothing extra for the service worker to cache. The music is a slow drone and a four-chord pad that
+listens to the run: as the world notices you and the cure closes in, the filter opens, a dissonant
+voice creeps in against the bass and a heartbeat starts under it. It fades out when the game ends
+so the closing sound has room. `MUSIC` holds the chords and the tuning; settings has a toggle for
+it on its own. The speaker button next to the gear mutes it, and the choice is
 remembered. Cues are driven off the event log, so anything the simulation reports can make a
 noise without the simulation knowing sound exists. `SFX` at the top of the sound section holds the
 levels and the minimum spacing between repeats; those gaps stretch automatically at 5× and above,

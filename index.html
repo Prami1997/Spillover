@@ -435,6 +435,13 @@ button,select,input{font:inherit;color:inherit}
       <button class="btn" id="newGame">New game</button>
       <button class="btn" id="step" title="Advance one day">Step one day</button>
     </div>
+    <h3>Sound</h3>
+    <p class="dbgnote">The speaker button on the map mutes everything at once. This keeps the
+      effects while turning the ambience off.</p>
+    <div class="setrow">
+      <button class="btn" id="toggleMusic" aria-pressed="true">Background music</button>
+    </div>
+
     <h3>Debug restart</h3>
     <p class="dbgnote">Same start and seed plus the same choices gives the same game.</p>
     <div class="restart">
@@ -1204,7 +1211,137 @@ function setSfx(on){
   btn.setAttribute('aria-pressed', String(on));
   btn.setAttribute('aria-label', on ? 'Mute sound' : 'Unmute sound');
   try { localStorage.setItem('spillover-sfx', on ? '1' : '0'); } catch (e){}
-  if (on) wakeAudio(); else if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+  if (on) wakeAudio(); else { stopMusic(); if (actx && actx.state === 'running') actx.suspend().catch(() => {}); }
+}
+
+// ---------- music ----------
+// A slow drone under a four-chord pad in D aeolian, synthesised like everything else. It is not a
+// loop: the filter, a heartbeat layer and one dissonant voice all follow how badly the run is
+// going, so the room gets tighter as the world notices you and the cure closes in.
+const MUSIC = {
+  gain: 0.17,            // ceiling for the whole music bus - well under the effects
+  chordSecs: 13,         // how long one chord is held
+  glide: 2.6,            // seconds the pad takes to slide into the next chord
+  pingChance: 0.3,       // odds of a sparse high note on each chord change
+  fadeIn: 5, fadeOut: 3.5,
+  cutoff: [250, 1350],   // lowpass sweep from calm to frantic
+  pulseEvery: [2500, 950],
+  // D pedal underneath; the pad keeps common tones so the changes barely announce themselves
+  chords: [
+    [110.00, 146.83, 174.61],   // Dm   A2  D3  F3
+    [116.54, 146.83, 174.61],   // Bb   Bb2 D3  F3
+    [110.00, 130.81, 174.61],   // F    A2  C3  F3
+    [116.54, 146.83, 196.00]    // Gm   Bb2 D3  G3
+  ],
+  pings: [587.33, 698.46, 880.00, 1046.50, 659.26]
+};
+
+let musicOn = true, mus = null;
+
+// 0 = nobody has noticed, 1 = the cure is nearly out and the world is dying
+function musicTension(){
+  if (!state || !state.started || state.over) return 0;
+  const T = state.totals, W = state.worldPop;
+  let t = state.detected ? 0.25 : 0;
+  t += 0.35 * (state.detected ? state.cure : 0);
+  t += 0.25 * Math.min(1, (T.I / W) * 1.6);
+  t += 0.25 * Math.min(1, (T.D / W) * 2);
+  return Math.max(0, Math.min(1, t));
+}
+
+function startMusic(){
+  if (mus || !sfxOn || !musicOn || !audioOK() || actx.state !== 'running') return;
+  const t = actx.currentTime;
+  const bus = actx.createGain(); bus.gain.setValueAtTime(0.0001, t); bus.connect(master);
+  const filt = actx.createBiquadFilter();
+  filt.type = 'lowpass'; filt.frequency.setValueAtTime(MUSIC.cutoff[0], t); filt.Q.value = 0.8;
+  filt.connect(bus);
+
+  const voice = (type, f, g, detune) => {
+    const o = actx.createOscillator(), gn = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = detune || 0;
+    gn.gain.setValueAtTime(g, t);
+    o.connect(gn); gn.connect(filt); o.start(t);
+    return { o, g: gn };
+  };
+  const drone = [voice('sawtooth', 36.71, 0.13, -7), voice('sawtooth', 73.42, 0.085, 7)];
+  const pad = MUSIC.chords[0].map(f => voice('triangle', f, 0.045));
+  const dis = voice('triangle', 155.56, 0.0001);   // Eb against the D pedal: unease, faded in late
+
+  bus.gain.exponentialRampToValueAtTime(MUSIC.gain, t + MUSIC.fadeIn);
+  mus = { bus, filt, drone, pad, dis, chord: 1,
+          nextChord: performance.now() + MUSIC.chordSecs * 1000,
+          nextPulse: performance.now() + 3000, pulseGain: 0, pulseEvery: MUSIC.pulseEvery[0] };
+  applyTension();
+}
+
+function stopMusic(){
+  if (!mus) return;
+  const m = mus; mus = null;
+  const t = actx.currentTime;
+  try {
+    m.bus.gain.cancelScheduledValues(t);
+    m.bus.gain.setValueAtTime(Math.max(0.0001, m.bus.gain.value), t);
+    m.bus.gain.exponentialRampToValueAtTime(0.0001, t + MUSIC.fadeOut);
+    const all = m.drone.concat(m.pad, [m.dis]);
+    for (const v of all) v.o.stop(t + MUSIC.fadeOut + 0.2);
+  } catch (e){ /* a closing context must never take the game with it */ }
+}
+
+function applyTension(){
+  if (!mus) return;
+  const t = musicTension(), now = actx.currentTime, ramp = 4;
+  mus.filt.frequency.linearRampToValueAtTime(MUSIC.cutoff[0] + (MUSIC.cutoff[1] - MUSIC.cutoff[0]) * t, now + ramp);
+  mus.dis.g.gain.linearRampToValueAtTime(t > 0.55 ? 0.012 + 0.03 * (t - 0.55) / 0.45 : 0.0001, now + ramp);
+  mus.pulseGain = t > 0.3 ? (t - 0.3) / 0.7 : 0;
+  mus.pulseEvery = MUSIC.pulseEvery[0] + (MUSIC.pulseEvery[1] - MUSIC.pulseEvery[0]) * t;
+}
+
+function nextChord(){
+  const c = MUSIC.chords[mus.chord++ % MUSIC.chords.length], t = actx.currentTime;
+  mus.pad.forEach((v, i) => v.o.frequency.exponentialRampToValueAtTime(c[i], t + MUSIC.glide));
+  if (Math.random() < MUSIC.pingChance){
+    const f = MUSIC.pings[Math.floor(Math.random() * MUSIC.pings.length)];
+    const at = t + Math.random() * 3;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.045, at + 0.9);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 3.6);
+    o.connect(g); g.connect(mus.bus); o.start(at); o.stop(at + 3.7);
+  }
+  applyTension();
+}
+
+function pulse(){
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(68, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.3);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.3 * mus.pulseGain, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  o.connect(g); g.connect(mus.bus);          // past the filter, so it stays felt rather than muffled
+  o.start(t); o.stop(t + 0.36);
+}
+
+// Driven from the render loop, so it stops by itself when the tab stops painting.
+function musicTick(now){
+  const want = sfxOn && musicOn && state && state.started && !state.over;
+  if (want && !mus && actx && actx.state === 'running') startMusic();
+  else if (!want && mus) stopMusic();
+  if (!mus) return;
+  if (now >= mus.nextChord){ nextChord(); mus.nextChord = now + MUSIC.chordSecs * 1000; }
+  if (mus.pulseGain > 0.02 && now >= mus.nextPulse){ pulse(); mus.nextPulse = now + mus.pulseEvery; }
+  else if (mus.pulseGain <= 0.02) mus.nextPulse = now + 1000;
+}
+function setMusic(on){
+  musicOn = on;
+  const btn = $('#toggleMusic');
+  if (btn) btn.setAttribute('aria-pressed', String(on));
+  try { localStorage.setItem('spillover-music', on ? '1' : '0'); } catch (e){}
+  if (!on) stopMusic();
 }
 
 // ---------- map ----------
@@ -1773,6 +1910,7 @@ function showState(s, sel, spd){
   state = s;
   selectedId = sel;
   renderedLog = -1; acc = 0; endShown = !!s.over; pausedBy = null;
+  stopMusic();                       // a new run starts its own ambience
   lastLogV = s.logVersion;            // never replay a restored log as sound
   $('#launch').hidden = true;
   hideEnd();
@@ -1866,6 +2004,7 @@ function frame(now){
   }
   updateVehicles();
   soundsFromLog();
+  musicTick(now);
   if (dirty){ render(); dirty = false; }
   if (now - lastSave > 5000) saveGame();
   requestAnimationFrame(frame);
@@ -1877,6 +2016,7 @@ $('#start').value = 'china';
 document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.speed)));
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { sfx('tap'); setPane(b.dataset.pane); }));
 $('#sfxBtn').addEventListener('click', () => { const on = !sfxOn; setSfx(on); if (on) sfx('tap'); });
+$('#toggleMusic').addEventListener('click', () => { sfx('tap'); setMusic(!musicOn); });
 document.addEventListener('pointerdown', wakeAudio, { passive: true });
 $('#step').addEventListener('click', () => { setSpeed(0); pausedBy = 0; tick(state); dirty = true; });
 $('#restart').addEventListener('click', () => { closeSettings(); restart(); });
@@ -1930,7 +2070,11 @@ window.addEventListener('resize', () => { fitMap(); dirty = true; });
 if (window.ResizeObserver) new ResizeObserver(fitMap).observe($('.stage'));
 
 buildSliders();
-(function(){ let on = true; try { on = localStorage.getItem('spillover-sfx') !== '0'; } catch (e){} setSfx(on); })();
+(function(){
+  let fx = true, mu = true;
+  try { fx = localStorage.getItem('spillover-sfx') !== '0'; mu = localStorage.getItem('spillover-music') !== '0'; } catch (e){}
+  setSfx(fx); setMusic(mu);
+})();
 (function boot(){
   const saved = loadSave();
   showState(saved || createState(null, Math.floor(Math.random() * 99999) + 1), null, 0);

@@ -1,7 +1,8 @@
 // Spillover offline support.
-// Serves files from the cache first, then refreshes them in the background,
-// so an update you upload shows up on the second launch after it goes live.
-const CACHE = 'spillover-v1';
+// The page itself is fetched network-first, so an update you upload is live on the very next
+// launch rather than the one after it. Icons, the manifest and fonts stay cache-first (they
+// almost never change), and everything falls back to the cache when there is no network.
+const CACHE = 'spillover-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
@@ -22,6 +23,31 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (url.origin !== location.origin && !isFont) return;
+
+  // The game is one HTML file, so that file is the whole update. Go to the network for it first
+  // and fall back to the cache only when the network cannot answer. cache: 'no-store' keeps the
+  // browser's own HTTP cache from handing back the copy we are trying to replace.
+  const isShell = req.mode === 'navigate' ||
+    (url.origin === location.origin && /(^|\/)(index\.html)?$/.test(url.pathname));
+  if (isShell){
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      try {
+        const fresh = await fetch(req.url, { cache: 'no-store', credentials: 'same-origin' });
+        if (fresh && fresh.ok){
+          cache.put('./index.html', fresh.clone());
+          return fresh;
+        }
+        throw new Error('bad status ' + (fresh && fresh.status));
+      } catch (err){
+        return (await cache.match(req, { ignoreSearch: true })) ||
+               (await cache.match('./index.html')) ||
+               Response.error();
+      }
+    })());
+    return;
+  }
+
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const cached = (await cache.match(req, { ignoreSearch: true })) ||

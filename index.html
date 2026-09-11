@@ -1945,7 +1945,7 @@ buildSliders();
   syncModal();
   (canContinue ? $('#btnContinue') : $('#btnNew')).focus();
 })();
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))){
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 requestAnimationFrame(frame);

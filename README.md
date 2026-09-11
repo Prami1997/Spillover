@@ -16,8 +16,12 @@ Personal hobby clone of a pathogen strategy game. Single-page app, no backend.
 4. Open that in Chrome on Android → menu (⋮) → *Add to home screen* / *Install app*.
 
 ## Updating
-Upload the new `index.html` over the old one and commit. The installed app picks up the
-new version on the second launch after the upload (the first launch still serves the cached copy).
+Upload the new `index.html` over the old one and commit. The installed app picks it up on the
+next launch: `sw.js` fetches the page network-first, so a deploy is live immediately and the
+cache is only used when there is no network.
+
+If you ever do see a stale copy, it is the browser still holding the old service worker — open
+the page twice, or clear the site's data once.
 
 ## Playing
 The world map fills the screen; day, DNA, the pathogen stats and cure progress float over the

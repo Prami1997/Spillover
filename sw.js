@@ -2,11 +2,16 @@
 // The page itself is fetched network-first, so an update you upload is live on the very next
 // launch rather than the one after it. Icons, the manifest and fonts stay cache-first (they
 // almost never change), and everything falls back to the cache when there is no network.
-const CACHE = 'spillover-v3';   // v3: new typeface, so the old Barlow files should go
+const CACHE = 'spillover-v4';   // v4: the icons and the manifest colours follow the new look
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' so a new cache version really goes to the network for the shell. Without it
+  // addAll may take the browser's own copy of the very files it is meant to replace, which is how
+  // a redrawn icon ends up cached as the old one all over again.
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {

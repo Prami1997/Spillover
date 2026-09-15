@@ -40,6 +40,16 @@ noise without the simulation knowing sound exists. `SFX` at the top of the sound
 levels and the minimum spacing between repeats; those gaps stretch automatically at 5× and above,
 because a sped-up world reports more than an ear can follow.
 
+### Zooming the map
+The world is far wider than it is tall, so on a phone the default view is already edge to edge and
+every pixel left over is vertical - the only way to make a region bigger is to show less of the
+world. So the map pinches, drags, double-taps and takes the mouse wheel, up to 3.2x; `+`, `-` and
+`0` do the same from a keyboard, and a control appears in the corner once you are zoomed. A drag
+pans instead of selecting whatever it passed over, and a pinch that starts on a DNA bubble does not
+spend it. Region names grow with the zoom only up to `LBL_CAP`, past which they hold their size
+rather than covering the legend, and the HUD gets a scrim to stand on once land slides underneath
+it. The default view is untouched: same transform, same pixels.
+
 **The clock only runs while you are looking at the map.** Opening the evolve sheet or settings
 pauses the game and closing it gives you your speed back, so reading a trait never costs you days.
 

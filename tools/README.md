@@ -11,3 +11,10 @@ Run them in this order, from this folder:
    `routes.json`. Prints the point count; paste the compact form into `SEA_LANES`.
 3. `node checkroutes.js` — samples every lane against the real coastline and reports anything
    touching land, then draws all of them over the map as `searoutes.png` for a look.
+
+## Panning
+
+`track.js` reports how far the map moves for a given finger movement, and whether the transform
+changes in the same event or a frame later. `panperf.js` times a move and, importantly, times a
+write followed by a read — reading geometry straight after writing a transform makes the browser
+lay the page out on the spot, which is what once turned a 0.075 ms move into 0.366.

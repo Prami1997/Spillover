@@ -73,6 +73,12 @@ Region names grow with the zoom only up to `LBL_CAP`, past which they hold their
 covering the legend, and the HUD gets a scrim to stand on once land slides underneath it. The
 default view is untouched: same transform, same pixels.
 
+Panning writes the transform in the same event it hears about the finger, and the map's own box is
+cached rather than re-read: asking for geometry right after writing a transform forces the browser
+to lay the page out there and then, which measured 0.366 ms a move against 0.033 with the box kept.
+That path had existed since zoom shipped but hardly ever ran, because panning used to do nothing at
+the default view — the moment it did something, every drag hit it.
+
 **East and west do not end.** The world is a cylinder, so dragging sideways keeps going and comes
 round again — you can centre the view on the Pacific, which the old clamped map could not show at
 all. Two `<use>` copies of the map sit one world either side to fill the edges, drawn only while an

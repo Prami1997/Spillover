@@ -66,12 +66,20 @@ If the map ever moves, regenerate the table with the scripts in `tools/` — see
 ### Zooming the map
 The world is far wider than it is tall, so on a phone the default view is already edge to edge and
 every pixel left over is vertical - the only way to make a region bigger is to show less of the
-world. So the map pinches, drags, double-taps and takes the mouse wheel, up to 3.2x; `+`, `-` and
-`0` do the same from a keyboard, and a control appears in the corner once you are zoomed. A drag
-pans instead of selecting whatever it passed over, and a pinch that starts on a DNA bubble does not
-spend it. Region names grow with the zoom only up to `LBL_CAP`, past which they hold their size
-rather than covering the legend, and the HUD gets a scrim to stand on once land slides underneath
-it. The default view is untouched: same transform, same pixels.
+world. So the map pinches, drags and takes the mouse wheel, up to 3.2x; `+`, `-` and `0` do the same from
+a keyboard, and a control appears in the corner once you are zoomed. A drag pans instead of
+selecting whatever it passed over, and a pinch that starts on a DNA bubble does not spend it.
+Region names grow with the zoom only up to `LBL_CAP`, past which they hold their size rather than
+covering the legend, and the HUD gets a scrim to stand on once land slides underneath it. The
+default view is untouched: same transform, same pixels.
+
+**East and west do not end.** The world is a cylinder, so dragging sideways keeps going and comes
+round again — you can centre the view on the Pacific, which the old clamped map could not show at
+all. Two `<use>` copies of the map sit one world either side to fill the edges, drawn only while an
+edge is actually in shot, so the default view costs exactly what it did before. They take no
+pointer events of their own: a tap that lands on a copy falls through to the map and is resolved
+back to the region or bubble it is a picture of. Up and down still stop at the last of the sea,
+because there is nothing above or below to repeat.
 
 **The clock only runs while you are looking at the map.** Opening the evolve sheet or settings
 pauses the game and closing it gives you your speed back, so reading a trait never costs you days.

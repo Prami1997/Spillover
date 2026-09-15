@@ -75,6 +75,9 @@ button,select,input{font:inherit;color:inherit}
 .shut{pointer-events:none}
 .shut rect{fill:var(--sea-deep);stroke:var(--amber);stroke-width:.9}
 .shut line{stroke:var(--amber);stroke-width:.9}
+/* The world either side of the real one. Decoration only - a tap that lands on a copy falls
+   through to the map and is resolved back to the region it is a copy of. */
+.worldcopy{pointer-events:none}
 .node{cursor:pointer;outline:none}
 .node .hit{fill:transparent}
 .node .body{fill:var(--sea-deep)}
@@ -344,6 +347,8 @@ button,select,input{font:inherit;color:inherit}
       <clipPath id="landClip"><path id="landClipPath"/></clipPath>
     </defs>
     <rect id="seaRect" x="-200" y="-200" width="800" height="800" fill="url(#seaGrad)"/>
+    <use id="worldW" class="worldcopy" href="#world" x="0"/>
+    <use id="worldE" class="worldcopy" href="#world" x="0"/>
     <g id="world">
       <path id="landFill" class="land"/>
       <rect id="landHatchRect" x="0" y="0" width="400" height="305" fill="url(#landHatch)" clip-path="url(#landClip)"/>
@@ -1709,8 +1714,7 @@ function syncBubbles(){
       const collect = e => {
         if (pinching()) return;                 // a second finger means a pinch, not a tap
         e.preventDefault(); e.stopPropagation();
-        const got = collectBubble(state, b.id);
-        if (got){ floater(p.x, p.y - 10, '+' + got.value); sfx(b.kind === 'infect' ? 'infectBubble' : 'collect'); dirty = true; }
+        takeBubble(b.id);
       };
       g.addEventListener('pointerdown', collect);
       g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') collect(e); });
@@ -1719,6 +1723,19 @@ function syncBubbles(){
     g.classList.toggle('fading', b.expires - state.day <= 3);
   }
   for (const [id, g] of bubbleEls) if (!live.has(id)){ g.remove(); bubbleEls.delete(id); }
+}
+// Collecting, in one place: the bubble's own handler calls it, and so does a tap that landed on
+// one of the world's copies instead of on the world.
+function takeBubble(id){
+  const b = state.bubbles.find(x => x.id === id);
+  if (!b) return false;
+  const p = bubblePos(state.byId[b.regionId]);
+  const got = collectBubble(state, id);
+  if (!got) return false;
+  floater(p.x, p.y - 10, '+' + got.value);
+  sfx(b.kind === 'infect' ? 'infectBubble' : 'collect');
+  dirty = true;
+  return true;
 }
 function floater(x, y, text){
   const t = svg('text', { x, y, class: 'floater' }, $('#floaters'));
@@ -1748,7 +1765,6 @@ function bowPts(a, b){
   }
   return out;
 }
-const WORLD_W = 400;
 function launch(mode, fromId, toId, hot){
   if (reduceMotion && !hot) return;
   if (vehicles.length >= MAX_VEHICLES){
@@ -1829,6 +1845,7 @@ const LAND_TOP = 65.5, LAND_H = 174, LAND_X = 40.7, LAND_W = 346.3;
 const fit = { k: 1, cx: 0, cy: 0, topSea: 0, avail: 0 };
 const view = { z: 1, cx: null, cy: null };     // null: stay on the fit's own centre
 const ZMIN = 1, ZMAX = 3.2, ZPAD = 12;         // ZPAD: world units of sea you may pull past the coast
+const WORLD_W = 400;                           // one turn of the world, in map units
 const LBL_CAP = 1.6;                           // zoom past which region names stop growing
 
 function fitMap(){
@@ -1859,15 +1876,14 @@ function fitMap(){
 // Where the middle of the map band sits, in viewBox units.
 const bandMid = () => fit.topSea + fit.avail / 2;
 
-// Keep the window over the land: once it is wider than the land, centre instead of clamping, so
-// the default view lands exactly where it always did.
+// East and west never end: the world repeats, so the horizontal centre only ever wraps. Up and
+// down it still stops at the last of the sea, because there is nothing above or below to repeat.
+const wrapX = x => ((x % WORLD_W) + WORLD_W) % WORLD_W;
 function centreFor(K){
-  const halfW = 200 / K, halfH = fit.avail / 2 / K;
-  const l = LAND_X - ZPAD, r = LAND_X + LAND_W + ZPAD;
+  const halfH = fit.avail / 2 / K;
   const t = LAND_TOP - ZPAD, b = LAND_TOP + LAND_H + ZPAD;
-  let x = view.cx === null ? fit.cx : view.cx;
+  const x = view.cx === null ? fit.cx : wrapX(view.cx);
   let y = view.cy === null ? fit.cy : view.cy;
-  x = r - l <= 2 * halfW ? (l + r) / 2 : Math.min(Math.max(x, l + halfW), r - halfW);
   y = b - t <= 2 * halfH ? (t + b) / 2 : Math.min(Math.max(y, t + halfH), b - halfH);
   return { x, y };
 }
@@ -1876,6 +1892,13 @@ function applyView(){
   if (view.cx !== null){ view.cx = c.x; view.cy = c.y; }      // write the clamp back, or panning drifts
   const tx = 200 - K * c.x, ty = bandMid() - K * c.y;
   $('#world').setAttribute('transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${K.toFixed(4)})`);
+  // The copies only exist to fill the edges, so they are only drawn when an edge is in shot.
+  // At the default view the window sits inside the world and neither is rendered at all.
+  const turn = (WORLD_W * K).toFixed(1), halfW = 200 / K;
+  $('#worldW').setAttribute('x', -turn);
+  $('#worldE').setAttribute('x', turn);
+  $('#worldW').style.display = c.x - halfW < 0 ? '' : 'none';
+  $('#worldE').style.display = c.x + halfW > WORLD_W ? '' : 'none';
   const zoomed = view.z > ZMIN + 0.001;
   $('#zoombar').hidden = !zoomed;
   $('.stage').classList.toggle('zoomed', zoomed);
@@ -1885,6 +1908,15 @@ function applyView(){
   $('#zoomLvl').textContent = view.z.toFixed(1) + '\u00d7';
   $('#zoomIn').disabled = view.z >= ZMAX - 0.001;
 }
+// Where a point on the screen is in the world, with the copies folded back onto the real one, so
+// a tap on the map east of the map still means the region it is a picture of.
+function worldAt(clientX, clientY){
+  const v = toView(clientX, clientY);
+  const K = fit.k * view.z, c = centreFor(K);
+  return { x: wrapX((v.x - (200 - K * c.x)) / K), y: (v.y - (bandMid() - K * c.y)) / K };
+}
+const wrapDist = (ax, bx) => { const d = Math.abs(ax - bx); return Math.min(d, WORLD_W - d); };
+
 // client pixels -> viewBox units. The viewBox is built from the element's own aspect, so one
 // factor does both axes.
 function toView(clientX, clientY){
@@ -1906,9 +1938,9 @@ function zoomAbout(f, factor){
 }
 function resetView(){ view.z = 1; view.cx = view.cy = null; applyView(); }
 function panBy(dx, dy){                        // dx/dy in viewBox units, the way the finger moved
-  if (view.z <= ZMIN + 1e-4) return;
   const K = fit.k * view.z, c = centreFor(K);
-  view.cx = c.x - dx / K; view.cy = c.y - dy / K;
+  view.cx = c.x - dx / K;                      // sideways works at any zoom: the world comes round
+  if (view.z > ZMIN + 1e-4) view.cy = c.y - dy / K;
   applyView();
 }
 
@@ -1916,7 +1948,7 @@ function panBy(dx, dy){                        // dx/dy in viewBox units, the wa
 // One pointer pans, two pinch. A pointer that has travelled more than DRAG_SLOP is a drag, not a
 // tap, and the click it would fire on a region is swallowed on the way down.
 const ptrs = new Map();
-let pinchGap = 0, dragTravel = 0, eatClick = false, tapAt = 0, tapPt = null;
+let pinchGap = 0, dragTravel = 0, eatClick = false;
 const DRAG_SLOP = 8;                     // client px before a tap becomes a drag
 const pinching = () => ptrs.size > 1;
 
@@ -1956,24 +1988,15 @@ function onMove(e){
   const was = dragTravel;
   dragTravel += Math.hypot(dx, dy);
   if (was <= DRAG_SLOP && dragTravel > DRAG_SLOP) grab(e.pointerId);
-  if (view.z <= ZMIN + 1e-4) return;           // nothing to pan at the default view
   const a = toView(prev.x, prev.y), b = toView(e.clientX, e.clientY);
-  panBy(b.x - a.x, b.y - a.y);
+  panBy(b.x - a.x, b.y - a.y);                 // sideways always, up and down only once zoomed
 }
 function onUp(e){
   const had = ptrs.size;
   ptrs.delete(e.pointerId);
   if (ptrs.size < 2) pinchGap = 0;
   if (!ptrs.size) $('#map').classList.remove('grabbing');
-  if (dragTravel > DRAG_SLOP){ eatClick = true; return; }
-  if (had > 1) return;
-  // a clean tap: a second one within 320ms zooms in on it, or back out if we are already deep
-  const now = performance.now(), pt = { x: e.clientX, y: e.clientY };
-  if (tapPt && now - tapAt < 320 && Math.hypot(pt.x - tapPt.x, pt.y - tapPt.y) < 30){
-    if (view.z > ZMAX - 0.3) resetView(); else zoomAbout(toView(pt.x, pt.y), 1.9);
-    eatClick = true; tapPt = null; return;
-  }
-  tapAt = now; tapPt = pt;
+  if (dragTravel > DRAG_SLOP) eatClick = true;
 }
 (function wireMapGestures(){
   const map = $('#map');
@@ -1987,6 +2010,23 @@ function onUp(e){
     if (!eatClick) return;
     eatClick = false; e.stopPropagation(); e.preventDefault();
   }, true);
+  // The copies take no pointer events, so a tap on one arrives here having hit nothing. Work out
+  // which bubble or region it was a picture of and act on that instead.
+  map.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest('.node, .bubble')) return;
+    if (!state.started && !state.over) return;
+    const w = worldAt(e.clientX, e.clientY);
+    for (const b of state.bubbles){
+      const p = bubblePos(state.byId[b.regionId]);
+      if (Math.hypot(wrapDist(w.x, p.x), w.y - p.y) <= 13){ takeBubble(b.id); return; }
+    }
+    let best = null, bd = Infinity;
+    for (const r of state.regions){
+      const d = Math.hypot(wrapDist(w.x, r.x), w.y - r.y);
+      if (d < bd){ bd = d; best = r; }
+    }
+    if (best && bd <= Math.max(radius(best) + 6, 20)) pickRegion(best.id);
+  });
   map.addEventListener('wheel', e => {
     e.preventDefault();
     // scale with how far the wheel actually turned, so a notch and a trackpad flick both feel right

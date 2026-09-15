@@ -40,6 +40,20 @@ noise without the simulation knowing sound exists. `SFX` at the top of the sound
 levels and the minimum spacing between repeats; those gaps stretch automatically at 5× and above,
 because a sped-up world reports more than an ear can follow.
 
+### Sea lanes
+Ships used to be drawn as a plain arc from one region to the next, which meant they sailed over
+Asia: the region markers sit inland, so all 190 port pairs crossed land, most of them for more
+than a quarter of the trip. `SEA_LANES` in `index.html` holds a real route for every pair instead,
+worked out once against this very coastline — a 2-unit sea grid taken from the land path, A* that
+keeps four units of water under the keel and prefers open ocean to a strait, then straightened
+only where there is room. Every lane is checked at 2-unit intervals along the line the game
+actually draws: none of them touches land. Planes and carriers still fly a bow straight over
+whatever is in the way, because they fly.
+
+If the map ever moves, regenerate the table with `dumpgrid.js` (pulls the grid out of the
+rendered coastline) then `buildroutes.js` (routes and prints the point count), and re-check it
+with `checkroutes.js`, which also draws every lane over the map for a look.
+
 ### Zooming the map
 The world is far wider than it is tall, so on a phone the default view is already edge to edge and
 every pixel left over is vertical - the only way to make a region bigger is to show less of the

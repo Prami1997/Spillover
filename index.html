@@ -58,7 +58,14 @@ button,select,input{font:inherit;color:inherit}
 
 /* ---------- stage: the map fills it, HUD floats over the ocean ---------- */
 .stage{position:relative;flex:1;min-height:0;overflow:hidden;transition:background 3s linear;background:radial-gradient(ellipse 72% 72% at 50% 42%,var(--sea),var(--sea-deep))}
-#map{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* display, not opacity: an always-present transparent layer flips the whole page to greyscale
+   antialiasing, which repaints every glyph on the screen for no reason at the default view. */
+.scrim{display:none;position:absolute;left:0;right:0;pointer-events:none;z-index:1}
+.stage.zoomed .scrim{display:block}
+.scrim.top{top:0;height:190px;background:linear-gradient(var(--ink) 34%,#0D0F1000)}
+.scrim.bot{bottom:0;height:70px;background:linear-gradient(#0D0F1000,var(--ink) 78%)}
+#map{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+#map.grabbing{cursor:grabbing}
 .land{fill:var(--land);transition:fill 3s linear}
 .coast,.hatch line,.link{transition:stroke 3s linear}
 .hatch{stroke:var(--stipple);stroke-width:.5;stroke-opacity:.55}
@@ -77,7 +84,7 @@ button,select,input{font:inherit;color:inherit}
 .node .selring{fill:none;stroke:var(--paper);stroke-width:1;opacity:0}
 .node.sel .selring{opacity:1}
 .node:focus-visible .selring{opacity:1;stroke-dasharray:3 3}
-.lbl{font:600 7px var(--cond);letter-spacing:.09em;fill:var(--paper);paint-order:stroke;stroke:var(--sea-deep);stroke-width:2.4px;stroke-linejoin:round;pointer-events:none;text-transform:uppercase}
+.lbl{font:600 calc(7px * var(--lblk, 1)) var(--cond);letter-spacing:.09em;fill:var(--paper);paint-order:stroke;stroke:var(--sea-deep);stroke-width:2.4px;stroke-linejoin:round;pointer-events:none;text-transform:uppercase}
 .node.gone .lbl{fill:var(--muted)}
 .trail{fill:none;stroke:var(--paper);stroke-opacity:.24;stroke-width:.8;stroke-dasharray:1.6 2.6;pointer-events:none}
 .trail.hot{stroke:var(--infected);stroke-opacity:.85}
@@ -98,7 +105,7 @@ button,select,input{font:inherit;color:inherit}
 @media (prefers-reduced-motion: reduce){ .bubble .pop,.floater{animation:none} }
 
 /* ---------- HUD over the map ---------- */
-.hud{position:absolute;top:0;left:0;right:0;padding:calc(9px + var(--top)) 14px 0;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+.hud{position:absolute;z-index:2;top:0;left:0;right:0;padding:calc(9px + var(--top)) 14px 0;display:flex;flex-direction:column;gap:9px;pointer-events:none}
 .hud .dnabtn{pointer-events:auto}
 .hudtop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .clock{display:flex;align-items:baseline;gap:7px}
@@ -123,7 +130,16 @@ button,select,input{font:inherit;color:inherit}
 .cure .track{height:4px;margin-top:5px;background:var(--track);overflow:hidden}
 .cure .fill{height:100%;width:0;background:repeating-linear-gradient(90deg,var(--cure) 0 7px,var(--ink) 7px 8px)}
 .cure.done .fill{background:var(--paper)}
-.worldstrip{position:absolute;left:14px;right:14px;bottom:8px;pointer-events:none}
+.worldstrip{position:absolute;z-index:2;left:14px;right:14px;bottom:8px;pointer-events:none}
+/* Only shows up once the player has zoomed, so the map keeps its empty edges until it is needed. */
+.zoombar{position:absolute;right:14px;bottom:34px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.zoombar[hidden]{display:none}
+.zoombtn{width:38px;height:38px;display:flex;align-items:center;justify-content:center;padding:0;
+  background:var(--ink);border:1px solid var(--line);border-radius:0;color:var(--paper);cursor:pointer;
+  font:500 17px var(--mono);line-height:1}
+.zoombtn:hover{border-color:var(--paper)}
+.zoombar .lvl{font:600 9px var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--amber);
+  text-align:center;background:var(--ink);border:1px solid var(--line);border-top:0;padding:3px 0}
 .worldbar{display:flex;height:5px;gap:1px;overflow:hidden;background:none}
 .worldbar i{display:block;height:100%;flex:none}
 .h{background:var(--healthy)} .i{background:var(--infected)} .d{background:var(--dead)}
@@ -355,6 +371,14 @@ button,select,input{font:inherit;color:inherit}
     <p id="banner" class="banner" hidden></p>
   </div>
 
+  <div class="scrim top"></div>
+  <div class="scrim bot"></div>
+  <div class="zoombar" id="zoombar" hidden>
+    <button class="zoombtn" id="zoomIn" aria-label="Zoom in">+</button>
+    <button class="zoombtn" id="zoomOut" aria-label="Zoom out">&#8722;</button>
+    <button class="zoombtn" id="zoomReset" aria-label="Show the whole world" title="Whole world">&#9974;</button>
+    <div class="lvl" id="zoomLvl" aria-live="off">1.0&times;</div>
+  </div>
   <div class="worldstrip" id="worldstrip">
     <div class="worldbar" id="worldbar"><i class="h"></i><i class="i"></i><i class="d"></i></div>
     <div class="legend">
@@ -1655,6 +1679,7 @@ function syncBubbles(){
       const t = svg('text', { y: 2.7, class: 'bval' }, inner);
       t.textContent = b.value;
       const collect = e => {
+        if (pinching()) return;                 // a second finger means a pinch, not a tap
         e.preventDefault(); e.stopPropagation();
         const got = collectBubble(state, b.id);
         if (got){ floater(p.x, p.y - 10, '+' + got.value); sfx(b.kind === 'infect' ? 'infectBubble' : 'collect'); dirty = true; }
@@ -1734,6 +1759,17 @@ function ambientTraffic(dt){
 // stage's own aspect so nothing letterboxes, then push the world below the HUD - and shrink it
 // if a short screen leaves less room than the land needs. Called on every resize.
 const LAND_TOP = 65.5, LAND_H = 174, LAND_X = 40.7, LAND_W = 346.3;
+
+// The whole world is wider than it is tall, so on a phone the map is already edge to edge at the
+// default fit and every pixel left over is vertical. The only way to make a region bigger is to
+// show less of the world - which is what the zoom below is for. fit holds that default view;
+// view holds what the player has done on top of it, stored as a world point to keep centred and
+// a factor relative to the fit, so a rotation or a resize keeps the player where they were.
+const fit = { k: 1, cx: 0, cy: 0, topSea: 0, avail: 0 };
+const view = { z: 1, cx: null, cy: null };     // null: stay on the fit's own centre
+const ZMIN = 1, ZMAX = 3.2, ZPAD = 12;         // ZPAD: world units of sea you may pull past the coast
+const LBL_CAP = 1.6;                           // zoom past which region names stop growing
+
 function fitMap(){
   const stage = $('.stage').getBoundingClientRect();
   const hudH = $('.hud').getBoundingClientRect().height;
@@ -1747,14 +1783,157 @@ function fitMap(){
   // The projection is much wider than it is tall, so the limit is the width: scale up until the
   // land would touch the edges, never past it.
   const kMax = 400 / LAND_W;
-  const k = Math.max(0.55, Math.min(kMax, avail / LAND_H));
-  const shift = topSea - LAND_TOP * k + Math.max(0, (avail - LAND_H * k) / 2);
+  fit.k = Math.max(0.55, Math.min(kMax, avail / LAND_H));
+  fit.cx = LAND_X + LAND_W / 2; fit.cy = LAND_TOP + LAND_H / 2;
+  fit.topSea = topSea; fit.avail = avail;
   $('#map').setAttribute('viewBox', `0 0 400 ${vbH.toFixed(1)}`);
-  const cx = LAND_X + LAND_W / 2, tx = 200 - cx * k;
-  $('#world').setAttribute('transform', `translate(${tx.toFixed(1)} ${shift.toFixed(1)}) scale(${k.toFixed(4)})`);
-  mapView = { x0: -tx / k, x1: (400 - tx) / k };
+  // Labels are laid out against the default view and then left alone: zooming scales every node
+  // and every label by the same amount, so a layout that reads at 1x still reads at 3x.
+  const tx0 = 200 - fit.cx * fit.k;
+  mapView = { x0: -tx0 / fit.k, x1: (400 - tx0) / fit.k };
+  applyView();
   if (nodes[state.regions[0].id]) placeLabels();
 }
+
+// Where the middle of the map band sits, in viewBox units.
+const bandMid = () => fit.topSea + fit.avail / 2;
+
+// Keep the window over the land: once it is wider than the land, centre instead of clamping, so
+// the default view lands exactly where it always did.
+function centreFor(K){
+  const halfW = 200 / K, halfH = fit.avail / 2 / K;
+  const l = LAND_X - ZPAD, r = LAND_X + LAND_W + ZPAD;
+  const t = LAND_TOP - ZPAD, b = LAND_TOP + LAND_H + ZPAD;
+  let x = view.cx === null ? fit.cx : view.cx;
+  let y = view.cy === null ? fit.cy : view.cy;
+  x = r - l <= 2 * halfW ? (l + r) / 2 : Math.min(Math.max(x, l + halfW), r - halfW);
+  y = b - t <= 2 * halfH ? (t + b) / 2 : Math.min(Math.max(y, t + halfH), b - halfH);
+  return { x, y };
+}
+function applyView(){
+  const K = fit.k * view.z, c = centreFor(K);
+  if (view.cx !== null){ view.cx = c.x; view.cy = c.y; }      // write the clamp back, or panning drifts
+  const tx = 200 - K * c.x, ty = bandMid() - K * c.y;
+  $('#world').setAttribute('transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${K.toFixed(4)})`);
+  const zoomed = view.z > ZMIN + 0.001;
+  $('#zoombar').hidden = !zoomed;
+  $('.stage').classList.toggle('zoomed', zoomed);
+  // Region names follow the zoom only so far. Past LBL_CAP they hold their size, or at 3x they
+  // cover the legend and the controls instead of naming anything.
+  $('#map').style.setProperty('--lblk', Math.min(1, LBL_CAP / view.z).toFixed(3));
+  $('#zoomLvl').textContent = view.z.toFixed(1) + '\u00d7';
+  $('#zoomIn').disabled = view.z >= ZMAX - 0.001;
+}
+// client pixels -> viewBox units. The viewBox is built from the element's own aspect, so one
+// factor does both axes.
+function toView(clientX, clientY){
+  const r = $('#map').getBoundingClientRect();
+  return { x: (clientX - r.left) / r.width * 400, y: (clientY - r.top) / r.width * 400 };
+}
+// Zoom so the world point under f stays under f - the thing that makes pinching feel attached
+// to the map rather than to the screen.
+function zoomAbout(f, factor){
+  const z = Math.min(ZMAX, Math.max(ZMIN, view.z * factor));
+  if (Math.abs(z - view.z) < 1e-4) return;
+  const K0 = fit.k * view.z, c = centreFor(K0);
+  const wx = (f.x - (200 - K0 * c.x)) / K0, wy = (f.y - (bandMid() - K0 * c.y)) / K0;
+  const K1 = fit.k * z;
+  view.z = z;
+  view.cx = wx + (200 - f.x) / K1;
+  view.cy = wy + (bandMid() - f.y) / K1;
+  if (z <= ZMIN + 1e-4) resetView(); else applyView();
+}
+function resetView(){ view.z = 1; view.cx = view.cy = null; applyView(); }
+function panBy(dx, dy){                        // dx/dy in viewBox units, the way the finger moved
+  if (view.z <= ZMIN + 1e-4) return;
+  const K = fit.k * view.z, c = centreFor(K);
+  view.cx = c.x - dx / K; view.cy = c.y - dy / K;
+  applyView();
+}
+
+// ---------- map gestures: pinch, drag, wheel, double tap ----------
+// One pointer pans, two pinch. A pointer that has travelled more than DRAG_SLOP is a drag, not a
+// tap, and the click it would fire on a region is swallowed on the way down.
+const ptrs = new Map();
+let pinchGap = 0, dragTravel = 0, eatClick = false, tapAt = 0, tapPt = null;
+const DRAG_SLOP = 8;                     // client px before a tap becomes a drag
+const pinching = () => ptrs.size > 1;
+
+function ptrMid(){
+  let x = 0, y = 0;
+  for (const p of ptrs.values()){ x += p.x; y += p.y; }
+  return { x: x / ptrs.size, y: y / ptrs.size };
+}
+function ptrGap(){
+  const [a, b] = [...ptrs.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function onDown(e){
+  if (e.button > 0) return;                    // a right or middle click is not a gesture
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1){ dragTravel = 0; $('#map').classList.add('grabbing'); }
+  else if (ptrs.size === 2){ pinchGap = ptrGap(); dragTravel = DRAG_SLOP + 1; grab(e.pointerId); }
+}
+// Only once a gesture is really under way: a captured pointer retargets its click to the map,
+// which would stop a plain tap from ever reaching the region under it.
+function grab(id){ try { $('#map').setPointerCapture(id); } catch (err){} }
+function onMove(e){
+  const prev = ptrs.get(e.pointerId);
+  if (!prev) return;
+  const before = ptrs.size > 1 ? ptrMid() : { x: prev.x, y: prev.y };
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size > 1){
+    const gap = ptrGap(), mid = ptrMid();
+    if (pinchGap > 0 && gap > 0) zoomAbout(toView(mid.x, mid.y), gap / pinchGap);
+    pinchGap = gap;
+    // a two-finger slide moves the map as well, so a pinch can reposition in one gesture
+    const d0 = toView(before.x, before.y), d1 = toView(mid.x, mid.y);
+    panBy(d1.x - d0.x, d1.y - d0.y);
+    return;
+  }
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  const was = dragTravel;
+  dragTravel += Math.hypot(dx, dy);
+  if (was <= DRAG_SLOP && dragTravel > DRAG_SLOP) grab(e.pointerId);
+  if (view.z <= ZMIN + 1e-4) return;           // nothing to pan at the default view
+  const a = toView(prev.x, prev.y), b = toView(e.clientX, e.clientY);
+  panBy(b.x - a.x, b.y - a.y);
+}
+function onUp(e){
+  const had = ptrs.size;
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinchGap = 0;
+  if (!ptrs.size) $('#map').classList.remove('grabbing');
+  if (dragTravel > DRAG_SLOP){ eatClick = true; return; }
+  if (had > 1) return;
+  // a clean tap: a second one within 320ms zooms in on it, or back out if we are already deep
+  const now = performance.now(), pt = { x: e.clientX, y: e.clientY };
+  if (tapPt && now - tapAt < 320 && Math.hypot(pt.x - tapPt.x, pt.y - tapPt.y) < 30){
+    if (view.z > ZMAX - 0.3) resetView(); else zoomAbout(toView(pt.x, pt.y), 1.9);
+    eatClick = true; tapPt = null; return;
+  }
+  tapAt = now; tapPt = pt;
+}
+(function wireMapGestures(){
+  const map = $('#map');
+  map.addEventListener('pointerdown', onDown);
+  map.addEventListener('pointermove', onMove);
+  map.addEventListener('pointerup', onUp);
+  map.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinchGap = 0; map.classList.remove('grabbing'); });
+  // Capture runs before the region's own handler, so a drag that happens to end on a node does
+  // not also select it.
+  map.addEventListener('click', e => {
+    if (!eatClick) return;
+    eatClick = false; e.stopPropagation(); e.preventDefault();
+  }, true);
+  map.addEventListener('wheel', e => {
+    e.preventDefault();
+    // scale with how far the wheel actually turned, so a notch and a trackpad flick both feel right
+    const d = Math.max(-500, Math.min(500, e.deltaY * (e.deltaMode === 1 ? 16 : 1)));
+    zoomAbout(toView(e.clientX, e.clientY), Math.exp(-d * 0.0015));
+  }, { passive: false });
+  map.addEventListener('dblclick', e => e.preventDefault());
+})();
 
 // ---------- dock: region / world / log ----------
 function select(id){ selectedId = id; dirty = true; }
@@ -2181,6 +2360,7 @@ function showState(s, sel, spd){
   if (!$('#sheet').hidden) closeSheet();
   if (!$('#settings').hidden) closeSettings();
   syncModal();
+  resetView();
   while (vehicles.length) removeVehicle(vehicles.length - 1);
   for (const g of bubbleEls.values()) g.remove();
   bubbleEls.clear();
@@ -2335,7 +2515,15 @@ $('#frontBtn').addEventListener('click', () => {
   dirty = true;
 });
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tree)));
+$('#zoomIn').addEventListener('click', () => zoomAbout({ x: 200, y: bandMid() }, 1.5));
+$('#zoomOut').addEventListener('click', () => zoomAbout({ x: 200, y: bandMid() }, 1 / 1.5));
+$('#zoomReset').addEventListener('click', resetView);
 document.addEventListener('keydown', e => {
+  if (!overlayOpen() && $('#endcard').hidden && $('#launch').hidden && !/^(INPUT|SELECT)$/.test(document.activeElement.tagName)){
+    if (e.key === '+' || e.key === '='){ zoomAbout({ x: 200, y: bandMid() }, 1.5); return; }
+    if (e.key === '-' || e.key === '_'){ zoomAbout({ x: 200, y: bandMid() }, 1 / 1.5); return; }
+    if (e.key === '0' && view.z > 1){ resetView(); return; }
+  }
   if (e.key !== 'Escape') return;
   if (!$('#endcard').hidden) hideEnd();
   else if (!$('#sheet').hidden) closeSheet();

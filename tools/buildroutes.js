@@ -5,6 +5,12 @@ const { STEP, W, H, ports } = G;
 const sea = Uint8Array.from(G.bits, c => c === '1' ? 1 : 0);
 const N = W * H;
 const idx = (i, j) => j * W + i;
+// The map is flat but the ocean is not: the Pacific is split between the left and right edges,
+// so column 0 and column W-1 are neighbours. Without this a ship from Japan to the USA sails
+// around Africa and South America instead of straight across.
+const WORLD = W * STEP;
+const wrapI = i => (i + W) % W;
+const dxWrap = (x1, x2) => { const d = Math.abs(x1 - x2); return Math.min(d, WORLD - d); };
 const px = k => (k % W) * STEP + STEP / 2;
 const py = k => ((k / W) | 0) * STEP + STEP / 2;
 
@@ -47,21 +53,57 @@ const ocean = (() => {
   return { comp, big };
 })();
 const ANCHOR_CLEAR = 4;   // a port sits in open water, not in a fjord
-function anchor(r){
-  let best = -1, bd = Infinity;
-  for (let k = 0; k < N; k++){
-    if (ocean.comp[k] !== ocean.big || clear[k] < ANCHOR_CLEAR) continue;
-    const d = (px(k) - r.x) ** 2 + (py(k) - r.y) ** 2;
-    if (d < bd){ bd = d; best = k; }
+const ANCHOR_N = 4, ANCHOR_SEP = 14, ANCHOR_RANGE = 46;   // a port is just off its own coast
+// One port per region is not enough: the USA's nearest water is the Atlantic, so every Pacific
+// crossing was routed the long way round the world. Take up to four, far enough apart to land on
+// genuinely different coasts, and let the search pick.
+// Every region gets its own ports, near itself, and no two regions may share one: Canada and the
+// USA otherwise both pick the same cell off Newfoundland and the lane between them is zero units
+// long. Claiming by nearest-region instead leaves China and the Middle East with no port at all,
+// because their own coastal water sits closer to a neighbour's marker.
+function assignAnchors(){
+  const taken = [];
+  const out = {};
+  const pool = ports.map(r => {
+    const cand = [];
+    for (let k = 0; k < N; k++){
+      if (ocean.comp[k] !== ocean.big || clear[k] < ANCHOR_CLEAR) continue;
+      const dx = dxWrap(px(k), r.x), dy = py(k) - r.y, d2 = dx * dx + dy * dy;
+      if (d2 <= ANCHOR_RANGE * ANCHOR_RANGE) cand.push([d2, k]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    return { r, cand };
+  });
+  // the most hemmed-in regions choose first, or a landlocked-ish one is left with nothing
+  pool.sort((a, b) => a.cand.length - b.cand.length);
+  for (const { r, cand } of pool){
+    const far = (k, list, sep) =>
+      list.every(o => Math.hypot(dxWrap(px(k), px(o)), py(k) - py(o)) >= sep);
+    const mine = [];
+    for (const [, k] of cand){
+      if (far(k, mine, ANCHOR_SEP) && far(k, taken, ANCHOR_SEP)) mine.push(k);
+      if (mine.length >= ANCHOR_N) break;
+    }
+    // never leave a region landlocked: if the neighbours took everything, take the nearest cell
+    // that at least is not literally one of theirs
+    if (!mine.length) for (const [, k] of cand){ if (!taken.includes(k)){ mine.push(k); break; } }
+    out[r.id] = mine;
+    taken.push(...mine);
   }
-  return best;
+  return out;
 }
-// A* with a flat binary heap over typed arrays
-const fq = new Float64Array(N * 4), kq = new Int32Array(N * 4);
-function route(sk, gk){
+
+// A* over the sea grid. Plain arrays for the open list: with four ports seeded per region it
+// outgrows any fixed guess.
+const fq = [], kq = [];
+
+// Many starts, many goals: seed every port of A and stop at whichever port of B is reached first,
+// so one search picks the coast to leave from and the coast to arrive at.
+function route(starts, goals){
   const g = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
   const done = new Uint8Array(N);
   let len = 0;
+  fq.length = 0; kq.length = 0;
   const push = (f, k) => {
     let i = len++; fq[i] = f; kq[i] = k;
     while (i > 0){ const p = (i - 1) >> 1; if (fq[p] <= fq[i]) break;
@@ -78,43 +120,62 @@ function route(sk, gk){
       const tf = fq[m], tk = kq[m]; fq[m] = fq[i]; kq[m] = kq[i]; fq[i] = tf; kq[i] = tk; i = m; }
     return top;
   };
-  const gx = px(gk), gy = py(gk);
-  g[sk] = 0; push(Math.hypot(px(sk) - gx, py(sk) - gy), sk);
-  let pops = 0;
+  const goalSet = new Set(goals);
+  const h = k => {
+    let best = Infinity;
+    for (const gk of goals) best = Math.min(best, Math.hypot(dxWrap(px(k), px(gk)), py(k) - py(gk)));
+    return best;
+  };
+  for (const sk of starts){ g[sk] = 0; push(h(sk), sk); }
+  let pops = 0, hit = -1;
   while (len){
     const k = pop();
     if (done[k]) continue;
     done[k] = 1; pops++;
-    if (k === gk) break;
+    if (goalSet.has(k)){ hit = k; break; }
     const i = k % W, j = (k / W) | 0;
     for (let dj = -1; dj <= 1; dj++){
       const nj = j + dj; if (nj < 0 || nj >= H) continue;
       for (let di = -1; di <= 1; di++){
         if (!di && !dj) continue;
-        const ni = i + di; if (ni < 0 || ni >= W) continue;
+        const ni = wrapI(i + di);                       // off one edge and back on the other
         const nk = idx(ni, nj);
         if (!sea[nk] || done[nk] || clear[nk] < CLEAR_MIN) continue;
         // open water is cheaper than threading a strait
         const pen = clear[nk] < 4 ? 1.7 : clear[nk] < 7 ? 1.15 : 1;
         const ng = g[k] + (di && dj ? 1.4142 : 1) * STEP * pen;
-        if (ng < g[nk]){ g[nk] = ng; prev[nk] = k; push(ng + Math.hypot(px(nk) - gx, py(nk) - gy), nk); }
+        if (ng < g[nk]){ g[nk] = ng; prev[nk] = k; push(ng + h(nk), nk); }
       }
     }
   }
-  if (gk !== sk && prev[gk] < 0) return { path: null, pops };
-  const out = [];
-  for (let k = gk; k !== -1; k = prev[k]){ out.push(k); if (k === sk) break; }
-  return { path: out.reverse(), pops };
+  if (hit < 0) return { path: null, pops };
+  const cells = [];
+  for (let k = hit; k !== -1; k = prev[k]) cells.push(k);
+  cells.reverse();
+  // Carry x straight through the seam instead of snapping back, so the line stays continuous and
+  // the game can simply draw it a second time one world to the side.
+  const path = [];
+  let off = 0;
+  for (let n = 0; n < cells.length; n++){
+    const x = px(cells[n]);
+    if (n){
+      const prevX = px(cells[n - 1]);
+      if (x - prevX > WORLD / 2) off -= WORLD;
+      else if (prevX - x > WORLD / 2) off += WORLD;
+    }
+    path.push({ x: x + off, y: py(cells[n]) });
+  }
+  return { path, pops };
 }
 // Straightening needs more water than passing does: a sight line that only just clears the grid
 // still cuts the corner off a headland, because the cell centre is at sea while the coast bulges.
 const SIGHT_CLEAR = 3;    // more than that before a leg may be straightened
 const sightOK = (a, b) => {
-  const n = Math.ceil(Math.hypot(px(b) - px(a), py(b) - py(a)) / (STEP * 0.5));
+  const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (STEP * 0.5));
   for (let i = 0; i <= n; i++){
     const t = i / n;
-    const x = px(a) + (px(b) - px(a)) * t, y = py(a) + (py(b) - py(a)) * t;
-    const k = idx(Math.max(0, Math.min(W - 1, Math.round((x - STEP / 2) / STEP))),
+    const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+    const k = idx(wrapI(Math.round((x - STEP / 2) / STEP)),
                   Math.max(0, Math.min(H - 1, Math.round((y - STEP / 2) / STEP))));
     if (!sea[k] || clear[k] < SIGHT_CLEAR) return false;
   }
@@ -133,9 +194,10 @@ function smooth(path){
 
 const t0 = Date.now();
 const anchors = {};
-for (const r of ports) anchors[r.id] = anchor(r);
-console.log('anchors in', Date.now() - t0, 'ms');
-const missing = ports.filter(r => anchors[r.id] < 0);
+Object.assign(anchors, assignAnchors());
+console.log('anchors in', Date.now() - t0, 'ms;',
+  ports.map(r => `${r.short}:${anchors[r.id].length}`).join(' '));
+const missing = ports.filter(r => !anchors[r.id].length);
 if (missing.length) console.log('NO ANCHOR for', missing.map(m => m.short).join(', '));
 
 const t1 = Date.now();
@@ -145,11 +207,13 @@ for (let a = 0; a < ports.length; a++) for (let b2 = a + 1; b2 < ports.length; b
   const { path, pops } = route(anchors[A.id], anchors[B.id]);
   worstPops = Math.max(worstPops, pops);
   if (!path){ failed.push(`${A.short} -> ${B.short}`); continue; }
-  routes[A.id + '>' + B.id] = smooth(path).map(k => [Math.round(px(k)), Math.round(py(k))]);
+  routes[A.id + '>' + B.id] = smooth(path).map(q => [Math.round(q.x), Math.round(q.y)]);
 }
 console.log(`${Object.keys(routes).length} routes in ${Date.now() - t1} ms, worst search popped ${worstPops} cells`);
 if (failed.length) console.log('FAILED:', failed.join(' | '));
 const pts = Object.values(routes).reduce((s, r) => s + r.length, 0);
 console.log('total points:', pts, ' avg per route:', (pts / Object.keys(routes).length).toFixed(1));
-fs.writeFileSync('routes.json', JSON.stringify({ anchors: Object.fromEntries(ports.map(r => [r.id, [Math.round(px(anchors[r.id])), Math.round(py(anchors[r.id]))]])), routes }));
+fs.writeFileSync('routes.json', JSON.stringify({
+  anchors: Object.fromEntries(ports.map(r => [r.id, anchors[r.id].map(k => [Math.round(px(k)), Math.round(py(k))])])),
+  routes }));
 console.log('longest:', Object.entries(routes).sort((x, y) => y[1].length - x[1].length).slice(0, 5).map(([k, v]) => `${k} (${v.length})`).join(', '));

@@ -46,13 +46,22 @@ Asia: the region markers sit inland, so all 190 port pairs crossed land, most of
 than a quarter of the trip. `SEA_LANES` in `index.html` holds a real route for every pair instead,
 worked out once against this very coastline — a 2-unit sea grid taken from the land path, A* that
 keeps four units of water under the keel and prefers open ocean to a strait, then straightened
-only where there is room. Every lane is checked at 2-unit intervals along the line the game
-actually draws: none of them touches land. Planes and carriers still fly a bow straight over
-whatever is in the way, because they fly.
+only where there is room. Every lane is checked along the line the game actually draws: none of
+them touches land. Planes and carriers still fly a bow straight over whatever is in the way,
+because they fly.
 
-If the map ever moves, regenerate the table with `dumpgrid.js` (pulls the grid out of the
-rendered coastline) then `buildroutes.js` (routes and prints the point count), and re-check it
-with `checkroutes.js`, which also draws every lane over the map for a look.
+Two things the routing needs that are easy to miss. **Each region has several ports, not one**:
+the water nearest the United States is the Atlantic, so with a single port every Pacific crossing
+went the long way round the world. Up to four are placed off each region's own coast, far enough
+apart to be genuinely different coasts and never shared with a neighbour, and one search starts
+from all of a region's ports at once and stops at whichever port of the destination it reaches
+first. **And the ocean wraps**: the map is flat, so the Pacific is split between the left and
+right edges. Column 0 and the last column are neighbours in the grid, a lane that crosses the seam
+keeps counting past 0 or 400 instead of jumping, and `launch()` draws such a lane a second time
+one world over so the ship leaves one edge and arrives at the other. Japan to the USA is 104 units
+across the Pacific; before the wrap it was 327 around Africa and South America.
+
+If the map ever moves, regenerate the table with the scripts in `tools/` — see `tools/README.md`.
 
 ### Zooming the map
 The world is far wider than it is tall, so on a phone the default view is already edge to edge and
